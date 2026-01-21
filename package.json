@@ -1,6 +1,6 @@
 {
   "name": "whaticon",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Find matching Iconify icons by visual similarity",
   "type": "module",
   "main": "dist/index.js",
