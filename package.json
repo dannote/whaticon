@@ -51,7 +51,8 @@
   },
   "dependencies": {
     "citty": "^0.2.0",
-    "sharp": "^0.33.0"
+    "sharp": "^0.33.0",
+    "svg-parser": "^2.0.4"
   },
   "devDependencies": {
     "@iconify-json/bi": "^1.2.7",
@@ -67,6 +68,7 @@
     "@iconify-json/ri": "^1.2.7",
     "@iconify-json/tabler": "^1.2.26",
     "@types/node": "^22.0.0",
+    "@types/svg-parser": "^2.0.6",
     "oxfmt": "^0.26.0",
     "oxlint": "^0.16.0",
     "typescript": "^5.7.0"

@@ -25,8 +25,48 @@ const HASH_BYTES = 128 // 1024 bits = 128 bytes
 /**
  * Convert SVG to grayscale pixel buffer for comparison
  */
+import { parse, type ElementNode, type Node } from 'svg-parser'
+
+const WHITE_COLORS = new Set(['white', '#fff', '#ffffff', 'rgb(255, 255, 255)', 'rgb(255,255,255)'])
+
+type SvgNode = string | Node
+
+function serializeNode(node: SvgNode): string {
+  if (typeof node === 'string') return node
+  if (node.type === 'text') return String(node.value ?? '')
+  if (node.type !== 'element') return ''
+
+  const el = node as ElementNode
+  const attrs = Object.entries(el.properties ?? {})
+    .map(([k, v]) => `${k}="${v}"`)
+    .join(' ')
+  const children = (el.children ?? []).map(serializeNode).join('')
+  const tag = el.tagName ?? 'g'
+
+  return children ? `<${tag}${attrs ? ' ' + attrs : ''}>${children}</${tag}>` : `<${tag}${attrs ? ' ' + attrs : ''}/>`
+}
+
+function normalizeSvgColors(svg: string): string {
+  const ast = parse(svg)
+
+  function walk(node: SvgNode): void {
+    if (typeof node === 'string' || node.type !== 'element') return
+    const el = node as ElementNode
+    const props = el.properties as Record<string, string> | undefined
+    if (props) {
+      if (props.fill && WHITE_COLORS.has(props.fill.toLowerCase())) props.fill = 'black'
+      if (props.stroke && WHITE_COLORS.has(props.stroke.toLowerCase())) props.stroke = 'black'
+    }
+    el.children?.forEach(walk)
+  }
+
+  ast.children.forEach(walk)
+  return ast.children.map(serializeNode).join('')
+}
+
 export async function svgToPixels(svg: string | Buffer, size = DEFAULT_SIZE): Promise<Buffer> {
-  const input = typeof svg === 'string' ? Buffer.from(svg) : svg
+  const svgStr = normalizeSvgColors(typeof svg === 'string' ? svg : svg.toString('utf-8'))
+  const input = Buffer.from(svgStr)
 
   const { data } = await sharp(input)
     .flatten({ background: '#ffffff' })
@@ -85,7 +125,8 @@ function computeHashFromPixels(data: Buffer, size: number, rowWidth: number): Bu
  * Returns a Buffer of 128 bytes (1024 bits)
  */
 export async function computeDHash(svg: string | Buffer, size = DEFAULT_SIZE): Promise<Buffer> {
-  const input = typeof svg === 'string' ? Buffer.from(svg) : svg
+  const svgStr = normalizeSvgColors(typeof svg === 'string' ? svg : svg.toString('utf-8'))
+  const input = Buffer.from(svgStr)
 
   const data = await sharp(input)
     .flatten({ background: '#ffffff' })
@@ -225,19 +266,12 @@ export async function findMatches(
   const preferSet = prefer?.length ? new Set(prefer) : null
   return matches
     .sort((a, b) => {
-      const simDiff = b.similarity - a.similarity
-      if (Math.abs(simDiff) > 0.001) return simDiff
-
-      if (preferSet) {
-        const aPrefix = a.name.split(':')[0] ?? ''
-        const bPrefix = b.name.split(':')[0] ?? ''
-        const aPreferred = preferSet.has(aPrefix)
-        const bPreferred = preferSet.has(bPrefix)
-        if (aPreferred && !bPreferred) return -1
-        if (bPreferred && !aPreferred) return 1
-      }
-
-      return 0
+      // Apply preference bonus (5%) to preferred icon sets
+      const aPrefix = a.name.split(':')[0] ?? ''
+      const bPrefix = b.name.split(':')[0] ?? ''
+      const aBonus = preferSet?.has(aPrefix) ? 0.05 : 0
+      const bBonus = preferSet?.has(bPrefix) ? 0.05 : 0
+      return (b.similarity + bBonus) - (a.similarity + aBonus)
     })
     .slice(0, limit)
 }
