@@ -1,0 +1,9 @@
+dist/indexes/
+scripts/
+tests/
+.github/
+*.ts
+!*.d.ts
+tsconfig.json
+bun.lock
+.oxfmtrc.json
