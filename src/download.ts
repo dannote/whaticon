@@ -72,19 +72,19 @@ export async function downloadIndex(
   const tag = await getLatestIndexTag()
   log(`Latest: ${tag}`)
 
-  const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}/${variant}`
+  const baseUrl = `https://github.com/${GITHUB_REPO}/releases/download/${tag}`
   const paths = getIndexPaths(variant)
 
   log(`Downloading ${variant} index...`)
 
-  log(`  names.txt.gz`)
-  await downloadFile(`${baseUrl}/names.txt.gz`, paths.names)
+  log(`  ${variant}-names.txt.gz`)
+  await downloadFile(`${baseUrl}/${variant}-names.txt.gz`, paths.names)
 
-  log(`  hashes.bin.gz`)
-  await downloadFile(`${baseUrl}/hashes.bin.gz`, paths.hashes)
+  log(`  ${variant}-hashes.bin.gz`)
+  await downloadFile(`${baseUrl}/${variant}-hashes.bin.gz`, paths.hashes)
 
-  log(`  metadata.json`)
-  await downloadFile(`${baseUrl}/metadata.json`, paths.metadata)
+  log(`  ${variant}-metadata.json`)
+  await downloadFile(`${baseUrl}/${variant}-metadata.json`, paths.metadata)
 
   // Verify
   const metadata = JSON.parse(readFileSync(paths.metadata, 'utf-8'))

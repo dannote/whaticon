@@ -125,15 +125,14 @@ async function buildVariant(
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log(`\n  Hashed in ${elapsed}s`)
 
-  // Compress and save
+  // Compress and save with variant prefix in filename
   const namesGz = gzipSync(names)
   const hashesGz = gzipSync(hashes)
 
-  const variantDir = resolve(outDir, name)
-  mkdirSync(variantDir, { recursive: true })
+  mkdirSync(outDir, { recursive: true })
 
-  writeFileSync(resolve(variantDir, 'names.txt.gz'), namesGz)
-  writeFileSync(resolve(variantDir, 'hashes.bin.gz'), hashesGz)
+  writeFileSync(resolve(outDir, `${name}-names.txt.gz`), namesGz)
+  writeFileSync(resolve(outDir, `${name}-hashes.bin.gz`), hashesGz)
 
   // Write metadata
   const metadata = {
@@ -143,12 +142,12 @@ async function buildVariant(
     icons: allIcons.length,
     created: new Date().toISOString()
   }
-  writeFileSync(resolve(variantDir, 'metadata.json'), JSON.stringify(metadata, null, 2))
+  writeFileSync(resolve(outDir, `${name}-metadata.json`), JSON.stringify(metadata, null, 2))
 
   const totalSize = namesGz.length + hashesGz.length
-  console.log(`  Saved to ${variantDir}/`)
-  console.log(`    names.txt.gz:  ${(namesGz.length / 1024).toFixed(0)} KB`)
-  console.log(`    hashes.bin.gz: ${(hashesGz.length / 1024).toFixed(0)} KB`)
+  console.log(`  Saved to ${outDir}/`)
+  console.log(`    ${name}-names.txt.gz:  ${(namesGz.length / 1024).toFixed(0)} KB`)
+  console.log(`    ${name}-hashes.bin.gz: ${(hashesGz.length / 1024).toFixed(0)} KB`)
   console.log(`    Total: ${(totalSize / 1024 / 1024).toFixed(2)} MB`)
 
   return { icons: allIcons.length, size: totalSize }
@@ -189,7 +188,7 @@ async function main() {
         {
           icons,
           sizeBytes: size,
-          files: ['names.txt.gz', 'hashes.bin.gz', 'metadata.json']
+          files: [`${name}-names.txt.gz`, `${name}-hashes.bin.gz`, `${name}-metadata.json`]
         }
       ])
     )
