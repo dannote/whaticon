@@ -1,0 +1,70 @@
+{
+  "name": "whaticon",
+  "version": "0.1.0",
+  "description": "Find matching Iconify icons by visual similarity",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "whaticon": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./data/index.json": "./data/index.json"
+  },
+  "files": [
+    "dist",
+    "data"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "build:index": "bun run scripts/build-index.ts",
+    "test": "bun test",
+    "lint": "oxlint src/",
+    "format": "oxfmt --write src/ scripts/",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "icon",
+    "iconify",
+    "svg",
+    "search",
+    "match",
+    "reverse",
+    "phash",
+    "perceptual-hash",
+    "visual-similarity"
+  ],
+  "author": "Danny Tuppeny",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dannote/whaticon.git"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "citty": "^0.2.0",
+    "sharp": "^0.33.0"
+  },
+  "devDependencies": {
+    "@iconify-json/bi": "^1.2.7",
+    "@iconify-json/carbon": "^1.2.18",
+    "@iconify-json/fa6-regular": "^1.2.4",
+    "@iconify-json/fa6-solid": "^1.2.4",
+    "@iconify-json/fluent": "^1.2.37",
+    "@iconify-json/heroicons": "^1.2.3",
+    "@iconify-json/ion": "^1.2.6",
+    "@iconify-json/lucide": "^1.2.86",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify-json/ph": "^1.2.2",
+    "@iconify-json/ri": "^1.2.7",
+    "@iconify-json/tabler": "^1.2.26",
+    "@types/node": "^22.0.0",
+    "oxfmt": "^0.1.0",
+    "oxlint": "^0.16.0",
+    "typescript": "^5.7.0"
+  }
+}
