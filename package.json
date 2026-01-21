@@ -13,7 +13,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./data/index.json": "./data/index.json"
+    "./download": {
+      "import": "./dist/download.js",
+      "types": "./dist/download.d.ts"
+    }
   },
   "files": [
     "dist",
@@ -22,6 +25,8 @@
   "scripts": {
     "build": "tsc",
     "build:index": "bun run scripts/build-index.ts",
+    "build:all-indexes": "bun run scripts/build-all-indexes.ts",
+    "release:indexes": "bun run scripts/release-indexes.ts",
     "test": "bun test",
     "lint": "oxlint src/",
     "format": "oxfmt --write src/ scripts/",
@@ -45,7 +50,6 @@
     "url": "git+https://github.com/dannote/whaticon.git"
   },
   "dependencies": {
-    "@resvg/resvg-js": "^2.6.2",
     "citty": "^0.2.0",
     "sharp": "^0.33.0"
   },
@@ -63,7 +67,7 @@
     "@iconify-json/ri": "^1.2.7",
     "@iconify-json/tabler": "^1.2.26",
     "@types/node": "^22.0.0",
-    "oxfmt": "^0.1.0",
+    "oxfmt": "^0.26.0",
     "oxlint": "^0.16.0",
     "typescript": "^5.7.0"
   }

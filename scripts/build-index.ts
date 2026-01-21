@@ -6,25 +6,25 @@
  *   bun run scripts/build-index.ts                    # All popular sets
  *   bun run scripts/build-index.ts --prefix lucide    # Specific sets
  */
-import { mkdirSync, writeFileSync } from "fs"
-import { resolve } from "path"
-import { gzipSync } from "zlib"
+import { mkdirSync, writeFileSync } from 'fs'
+import { resolve } from 'path'
+import { gzipSync } from 'zlib'
 
-import { buildIndex } from "../src/index.ts"
+import { buildIndex } from '../src/index.ts'
 
 const POPULAR_SETS = [
-  "lucide",
-  "mdi",
-  "heroicons",
-  "tabler",
-  "ph",
-  "ri",
-  "bi",
-  "fa6-solid",
-  "fa6-regular",
-  "ion",
-  "carbon",
-  "fluent",
+  'lucide',
+  'mdi',
+  'heroicons',
+  'tabler',
+  'ph',
+  'ri',
+  'bi',
+  'fa6-solid',
+  'fa6-regular',
+  'ion',
+  'carbon',
+  'fluent'
 ]
 
 interface IconifyIcon {
@@ -59,13 +59,13 @@ async function loadCollection(prefix: string): Promise<IconData[]> {
       const h = icon.height || defaultHeight
       result.push({
         name: `${prefix}:${name}`,
-        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${icon.body}</svg>`,
+        svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${icon.body}</svg>`
       })
     }
     return result
   } catch {
     console.error(
-      `Package @iconify-json/${prefix} not installed. Run: bun add @iconify-json/${prefix}`,
+      `Package @iconify-json/${prefix} not installed. Run: bun add @iconify-json/${prefix}`
     )
     return []
   }
@@ -76,13 +76,13 @@ async function main() {
   let prefixes = POPULAR_SETS
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--prefix" && args[i + 1]) {
-      prefixes = args[i + 1]!.split(",").map((p) => p.trim())
+    if (args[i] === '--prefix' && args[i + 1]) {
+      prefixes = args[i + 1]!.split(',').map((p) => p.trim())
       break
     }
   }
 
-  console.log(`Building index for: ${prefixes.join(", ")}\n`)
+  console.log(`Building index for: ${prefixes.join(', ')}\n`)
 
   const allIcons: IconData[] = []
 
@@ -93,12 +93,12 @@ async function main() {
       allIcons.push(...icons)
       console.log(` ${icons.length} icons`)
     } else {
-      console.log(" skipped")
+      console.log(' skipped')
     }
   }
 
   console.log(`\nTotal: ${allIcons.length} icons`)
-  console.log("Computing hashes...\n")
+  console.log('Computing hashes...\n')
 
   const startTime = Date.now()
 
@@ -111,21 +111,19 @@ async function main() {
   })
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-  console.log(`\n\nHashed ${names.split("\n").length} icons in ${elapsed}s`)
+  console.log(`\n\nHashed ${names.split('\n').length} icons in ${elapsed}s`)
 
   // Compress
   const namesGz = gzipSync(names)
   const hashesGz = gzipSync(hashes)
 
-  const outDir = resolve(import.meta.dirname, "../data")
+  const outDir = resolve(import.meta.dirname, '../data')
   mkdirSync(outDir, { recursive: true })
 
-  writeFileSync(resolve(outDir, "names.txt.gz"), namesGz)
-  writeFileSync(resolve(outDir, "hashes.bin.gz"), hashesGz)
+  writeFileSync(resolve(outDir, 'names.txt.gz'), namesGz)
+  writeFileSync(resolve(outDir, 'hashes.bin.gz'), hashesGz)
 
-  const totalSize = ((namesGz.length + hashesGz.length) / 1024 / 1024).toFixed(
-    2,
-  )
+  const totalSize = ((namesGz.length + hashesGz.length) / 1024 / 1024).toFixed(2)
   console.log(`Saved to ${outDir}/ (${totalSize} MB total)`)
   console.log(`  names.txt.gz: ${(namesGz.length / 1024).toFixed(0)} KB`)
   console.log(`  hashes.bin.gz: ${(hashesGz.length / 1024).toFixed(0)} KB`)

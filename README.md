@@ -2,7 +2,7 @@
 
 Find matching [Iconify](https://iconify.design) icons by visual similarity.
 
-Given an SVG, `whaticon` renders it and compares against 57k+ indexed icons using perceptual hashing to find the closest matches.
+Given an SVG, `whaticon` renders it and compares against indexed icons using perceptual hashing to find the closest matches.
 
 ## Installation
 
@@ -28,6 +28,10 @@ npx whaticon icon.svg --prefer lucide
 # Adjust threshold and limit
 npx whaticon icon.svg --threshold 0.9 --limit 5
 
+# Use different index size
+npx whaticon icon.svg --index full    # 200k+ icons
+npx whaticon icon.svg --index core    # ~10k icons (faster)
+
 # JSON output
 npx whaticon icon.svg --json
 ```
@@ -40,22 +44,31 @@ npx whaticon icon.svg --json
 | `-t, --threshold <n>` | Minimum similarity 0-1 (default: 0.8) |
 | `-p, --prefix <sets>` | Limit to icon sets (comma-separated) |
 | `--prefer <sets>` | Prefer these icon sets (comma-separated) |
+| `-i, --index <variant>` | Index: `core`, `popular` (default), `full` |
 | `-j, --json` | Output as JSON |
+
+## Index Variants
+
+| Variant | Icons | Size | Description |
+|---------|-------|------|-------------|
+| `core` | ~10k | ~0.4 MB | lucide, heroicons, tabler |
+| `popular` | ~57k | ~1.8 MB | 12 popular sets (default) |
+| `full` | ~200k+ | ~6 MB | All Iconify sets |
+
+The `popular` index is bundled with the package. Other variants are downloaded on first use to `~/.cache/whaticon/`.
 
 ## API Usage
 
 ```typescript
 import { findMatches, loadIndex } from 'whaticon'
-import { readFileSync } from 'fs'
+import { ensureIndex } from 'whaticon/download'
 
-// Load index (ships with package)
-const index = loadIndex(
-  readFileSync('node_modules/whaticon/data/names.txt.gz'),
-  readFileSync('node_modules/whaticon/data/hashes.bin.gz')
-)
+// Ensure index is available (downloads if needed)
+const { namesGz, hashesGz } = await ensureIndex('popular')
+const index = loadIndex(namesGz, hashesGz)
 
 // Find matches
-const svg = readFileSync('icon.svg', 'utf-8')
+const svg = '<svg>...</svg>'
 const matches = await findMatches(svg, index, {
   limit: 5,
   threshold: 0.85,
@@ -74,48 +87,19 @@ console.log(matches)
 ### Functions
 
 #### `findMatches(svg, index, options?)`
-
 Find matching icons from an index.
 
 #### `computeDHash(svg, size?)`
-
 Compute difference hash for an SVG. Returns 128-byte Buffer.
 
-#### `svgToPixels(svg, size?)`
-
-Convert SVG to grayscale pixel buffer.
-
-#### `hammingDistance(h1, h2)`
-
-Calculate Hamming distance between two hash buffers.
-
-#### `hashSimilarity(h1, h2)`
-
-Convert hashes to similarity score (0-1).
-
-#### `fetchIconSvg(name)`
-
-Fetch icon SVG from Iconify API.
-
 #### `loadIndex(namesGz, hashesGz)`
-
 Load index from gzipped binary files.
 
-## Indexed Icon Sets
+#### `ensureIndex(variant)`
+Ensure index is downloaded, returns gzipped buffers.
 
-57k+ icons from popular sets:
-
-- Lucide
-- Material Design Icons (MDI)
-- Heroicons
-- Tabler
-- Phosphor
-- Remix Icon
-- Bootstrap Icons
-- Font Awesome
-- Ionicons
-- Carbon
-- Fluent
+#### `isIndexDownloaded(variant)`
+Check if index variant is cached locally.
 
 ## Building Custom Index
 
@@ -144,9 +128,9 @@ writeFileSync('hashes.bin.gz', gzipSync(hashes))
 
 - **Index build**: ~10,000 icons/sec (sprite sheet batching)
 - **Search**: ~5ms per query (32-bit popcount optimization)
-- **Index size**: 1.72 MB (gzip compressed)
+- **Index size**: ~30 bytes per icon (gzip compressed)
 
-### Index Format
+## Index Format
 
 Two gzip-compressed files:
 - `names.txt.gz` — icon names, one per line

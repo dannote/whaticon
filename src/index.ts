@@ -1,5 +1,5 @@
-import sharp from "sharp"
-import { gunzipSync } from "zlib"
+import sharp from 'sharp'
+import { gunzipSync } from 'zlib'
 
 export interface IconMatch {
   name: string
@@ -25,15 +25,12 @@ const HASH_BYTES = 128 // 1024 bits = 128 bytes
 /**
  * Convert SVG to grayscale pixel buffer for comparison
  */
-export async function svgToPixels(
-  svg: string | Buffer,
-  size = DEFAULT_SIZE,
-): Promise<Buffer> {
-  const input = typeof svg === "string" ? Buffer.from(svg) : svg
+export async function svgToPixels(svg: string | Buffer, size = DEFAULT_SIZE): Promise<Buffer> {
+  const input = typeof svg === 'string' ? Buffer.from(svg) : svg
 
   const { data } = await sharp(input)
-    .flatten({ background: "#ffffff" })
-    .resize(size, size, { fit: "contain", background: "#ffffff" })
+    .flatten({ background: '#ffffff' })
+    .resize(size, size, { fit: 'contain', background: '#ffffff' })
     .grayscale()
     .raw()
     .toBuffer({ resolveWithObject: true })
@@ -60,11 +57,7 @@ export function pixelSimilarity(px1: Buffer, px2: Buffer): number {
 /**
  * Compute dHash from grayscale pixel data (width must be size+1, height must be size)
  */
-function computeHashFromPixels(
-  data: Buffer,
-  size: number,
-  rowWidth: number,
-): Buffer {
+function computeHashFromPixels(data: Buffer, size: number, rowWidth: number): Buffer {
   const hash = Buffer.alloc(HASH_BYTES)
   let byteIndex = 0
   let byte = 0
@@ -91,15 +84,12 @@ function computeHashFromPixels(
  * Compute dHash (difference hash) for an image
  * Returns a Buffer of 128 bytes (1024 bits)
  */
-export async function computeDHash(
-  svg: string | Buffer,
-  size = DEFAULT_SIZE,
-): Promise<Buffer> {
-  const input = typeof svg === "string" ? Buffer.from(svg) : svg
+export async function computeDHash(svg: string | Buffer, size = DEFAULT_SIZE): Promise<Buffer> {
+  const input = typeof svg === 'string' ? Buffer.from(svg) : svg
 
   const data = await sharp(input)
-    .flatten({ background: "#ffffff" })
-    .resize(size + 1, size, { fit: "contain", background: "#ffffff" })
+    .flatten({ background: '#ffffff' })
+    .resize(size + 1, size, { fit: 'contain', background: '#ffffff' })
     .grayscale()
     .raw()
     .toBuffer()
@@ -145,11 +135,7 @@ export function hashSimilarity(h1: Buffer, h2: Buffer): number {
 /**
  * Fast Hamming distance against indexed hash (avoids Buffer allocation)
  */
-function hammingDistanceAtOffset(
-  h1: Buffer,
-  indexHashes: Buffer,
-  offset: number,
-): number {
+function hammingDistanceAtOffset(h1: Buffer, indexHashes: Buffer, offset: number): number {
   let distance = 0
   for (let i = 0; i < HASH_BYTES; i += 4) {
     let xor =
@@ -170,7 +156,7 @@ function hammingDistanceAtOffset(
  * Fetch icon SVG from Iconify API
  */
 export async function fetchIconSvg(name: string): Promise<string> {
-  const [prefix, icon] = name.split(":")
+  const [prefix, icon] = name.split(':')
   if (!prefix || !icon) {
     throw new Error(`Invalid icon name: ${name}. Expected format: prefix:icon`)
   }
@@ -195,8 +181,8 @@ export interface IconIndex {
  * Load index from binary files (gzipped)
  */
 export function loadIndex(namesGz: Buffer, hashesGz: Buffer): IconIndex {
-  const namesStr = gunzipSync(namesGz).toString("utf-8")
-  const names = namesStr.split("\n").filter(Boolean)
+  const namesStr = gunzipSync(namesGz).toString('utf-8')
+  const names = namesStr.split('\n').filter(Boolean)
   const hashes = gunzipSync(hashesGz)
   return { names, hashes }
 }
@@ -207,15 +193,9 @@ export function loadIndex(namesGz: Buffer, hashesGz: Buffer): IconIndex {
 export async function findMatches(
   svg: string | Buffer,
   index: IconIndex,
-  options: MatchOptions = {},
+  options: MatchOptions = {}
 ): Promise<IconMatch[]> {
-  const {
-    size = DEFAULT_SIZE,
-    limit = 10,
-    threshold = 0.8,
-    prefixes,
-    prefer,
-  } = options
+  const { size = DEFAULT_SIZE, limit = 10, threshold = 0.8, prefixes, prefer } = options
 
   const inputHash = await computeDHash(svg, size)
 
@@ -228,15 +208,11 @@ export async function findMatches(
     const name = index.names[i]!
 
     if (prefixSet) {
-      const prefix = name.split(":")[0]
+      const prefix = name.split(':')[0]
       if (!prefix || !prefixSet.has(prefix)) continue
     }
 
-    const dist = hammingDistanceAtOffset(
-      inputHash,
-      index.hashes,
-      i * HASH_BYTES,
-    )
+    const dist = hammingDistanceAtOffset(inputHash, index.hashes, i * HASH_BYTES)
     if (dist > thresholdDist) continue
 
     const similarity = 1 - dist / (HASH_BYTES * 8)
@@ -253,8 +229,8 @@ export async function findMatches(
       if (Math.abs(simDiff) > 0.001) return simDiff
 
       if (preferSet) {
-        const aPrefix = a.name.split(":")[0] ?? ""
-        const bPrefix = b.name.split(":")[0] ?? ""
+        const aPrefix = a.name.split(':')[0] ?? ''
+        const bPrefix = b.name.split(':')[0] ?? ''
         const aPreferred = preferSet.has(aPrefix)
         const bPreferred = preferSet.has(bPrefix)
         if (aPreferred && !bPreferred) return -1
@@ -276,13 +252,9 @@ const SPRITE_COLS = 50
 /**
  * Create a sprite sheet SVG from multiple icons
  */
-function createSpriteSheet(
-  icons: IconInput[],
-  cols: number,
-  iconSize: number,
-): string {
+function createSpriteSheet(icons: IconInput[], cols: number, iconSize: number): string {
   const rows = Math.ceil(icons.length / cols)
-  let inner = ""
+  let inner = ''
 
   for (let i = 0; i < icons.length; i++) {
     const x = (i % cols) * iconSize
@@ -291,11 +263,11 @@ function createSpriteSheet(
     // Extract viewBox and content from SVG
     const svg = icons[i]!.svg
     const viewBoxMatch = svg.match(/viewBox="([^"]+)"/)
-    const viewBox = viewBoxMatch ? viewBoxMatch[1] : "0 0 24 24"
+    const viewBox = viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24'
     const [, , vbW, vbH] = viewBox!.split(/\s+/).map(Number)
 
     // Extract inner content (everything between <svg> and </svg>)
-    const content = svg.replace(/<svg[^>]*>/, "").replace(/<\/svg>/, "")
+    const content = svg.replace(/<svg[^>]*>/, '').replace(/<\/svg>/, '')
 
     // Scale to fit icon cell
     const scale = Math.min(iconSize / (vbW || 24), (iconSize - 1) / (vbH || 24))
@@ -316,7 +288,7 @@ function extractHashesFromSprite(
   count: number,
   cols: number,
   iconWidth: number,
-  iconHeight: number,
+  iconHeight: number
 ): Buffer[] {
   const hashes: Buffer[] = []
 
@@ -357,7 +329,7 @@ function extractHashesFromSprite(
 export async function buildIndex(
   icons: IconInput[],
   size = DEFAULT_SIZE,
-  onProgress?: (current: number, total: number) => void,
+  onProgress?: (current: number, total: number) => void
 ): Promise<{ names: string; hashes: Buffer }> {
   const names: string[] = []
   const hashBuffers: Buffer[] = []
@@ -379,8 +351,8 @@ export async function buildIndex(
       const spriteHeight = rows * iconHeight
 
       const data = await sharp(Buffer.from(sprite))
-        .flatten({ background: "#ffffff" })
-        .resize(spriteWidth, spriteHeight, { fit: "fill" })
+        .flatten({ background: '#ffffff' })
+        .resize(spriteWidth, spriteHeight, { fit: 'fill' })
         .grayscale()
         .raw()
         .toBuffer()
@@ -392,7 +364,7 @@ export async function buildIndex(
         batch.length,
         SPRITE_COLS,
         iconWidth,
-        iconHeight,
+        iconHeight
       )
 
       for (let j = 0; j < batch.length; j++) {
@@ -416,7 +388,7 @@ export async function buildIndex(
   }
 
   return {
-    names: names.join("\n"),
-    hashes: Buffer.concat(hashBuffers),
+    names: names.join('\n'),
+    hashes: Buffer.concat(hashBuffers)
   }
 }

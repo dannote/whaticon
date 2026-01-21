@@ -1,0 +1,66 @@
+name: Update Indexes
+
+on:
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Index version (e.g., 1.0.1)'
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install all iconify packages
+        run: |
+          # Get list of all icon sets
+          PREFIXES=$(curl -s https://api.iconify.design/collections | jq -r 'keys[]')
+          
+          # Install each package (skip if not available)
+          for prefix in $PREFIXES; do
+            bun add -d @iconify-json/$prefix 2>/dev/null || true
+          done
+
+      - name: Build all indexes
+        run: bun run scripts/build-all-indexes.ts
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(date +%Y.%m.%d)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="index-v${VERSION}"
+          
+          # Delete existing release if exists
+          gh release delete $TAG --yes 2>/dev/null || true
+          
+          # Create release with all index files
+          gh release create $TAG \
+            --title "Index v${VERSION}" \
+            --notes "Automated index update $(date +%Y-%m-%d)" \
+            dist/indexes/manifest.json \
+            dist/indexes/core/* \
+            dist/indexes/popular/* \
+            dist/indexes/full/*
