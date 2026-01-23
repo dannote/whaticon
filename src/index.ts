@@ -269,8 +269,8 @@ export async function findMatches(
       // Apply preference bonus (5%) to preferred icon sets
       const aPrefix = a.name.split(':')[0] ?? ''
       const bPrefix = b.name.split(':')[0] ?? ''
-      const aBonus = preferSet?.has(aPrefix) ? 0.05 : 0
-      const bBonus = preferSet?.has(bPrefix) ? 0.05 : 0
+      const aBonus = preferSet?.has(aPrefix) ? 0.02 : 0
+      const bBonus = preferSet?.has(bPrefix) ? 0.02 : 0
       return (b.similarity + bBonus) - (a.similarity + aBonus)
     })
     .slice(0, limit)
