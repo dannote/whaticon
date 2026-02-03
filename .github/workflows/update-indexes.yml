@@ -60,7 +60,4 @@ jobs:
           gh release create $TAG \
             --title "Index v${VERSION}" \
             --notes "Automated index update $(date +%Y-%m-%d)" \
-            dist/indexes/manifest.json \
-            dist/indexes/core/* \
-            dist/indexes/popular/* \
-            dist/indexes/full/*
+            dist/indexes/*
