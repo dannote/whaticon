@@ -101,6 +101,18 @@ Ensure index is downloaded, returns gzipped buffers.
 #### `isIndexDownloaded(variant)`
 Check if index variant is cached locally.
 
+### Without Node
+
+`whaticon/hash` has no Node or native dependencies, for hosts that rasterize SVG themselves, such as a browser canvas or an app's own renderer. Rasterize the icon as the index was built: its shapes in black on white, fitted and centered in a 33 by 32 box, in grayscale, one byte per pixel.
+
+```ts
+import { dHashFromPixels, findMatchesByHash, parseIndex } from 'whaticon/hash'
+
+// names.txt and hashes.bin, ungzipped, for example with DecompressionStream
+const index = parseIndex(namesText, hashesBytes)
+const matches = findMatchesByHash(dHashFromPixels(grayscalePixels), index, { threshold: 0.9 })
+```
+
 ## Building Custom Index
 
 ```typescript

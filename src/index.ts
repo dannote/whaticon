@@ -1,26 +1,31 @@
 import sharp from 'sharp'
 import { gunzipSync } from 'zlib'
 
-export interface IconMatch {
-  name: string
-  similarity: number
-}
+import {
+  DEFAULT_SIZE,
+  HASH_BYTES,
+  dHashFromPixels,
+  findMatchesByHash,
+  hammingDistanceAt,
+  parseIndex,
+  type HashMatchOptions,
+  type IconIndex,
+  type IconMatch
+} from './hash.js'
 
-export interface MatchOptions {
+export {
+  dHashFromPixels,
+  findMatchesByHash,
+  parseIndex,
+  type HashMatchOptions,
+  type IconIndex,
+  type IconMatch
+} from './hash.js'
+
+export interface MatchOptions extends HashMatchOptions {
   /** Image size for comparison (default: 32) */
   size?: number
-  /** Maximum results to return (default: 10) */
-  limit?: number
-  /** Minimum similarity threshold 0-1 (default: 0.8) */
-  threshold?: number
-  /** Icon sets to search (default: all indexed) */
-  prefixes?: string[]
-  /** Preferred icon sets, sorted first at equal similarity */
-  prefer?: string[]
 }
-
-const DEFAULT_SIZE = 32
-const HASH_BYTES = 128 // 1024 bits = 128 bytes
 
 /**
  * Convert SVG to grayscale pixel buffer for comparison
@@ -95,32 +100,6 @@ export function pixelSimilarity(px1: Buffer, px2: Buffer): number {
 }
 
 /**
- * Compute dHash from grayscale pixel data (width must be size+1, height must be size)
- */
-function computeHashFromPixels(data: Buffer, size: number, rowWidth: number): Buffer {
-  const hash = Buffer.alloc(HASH_BYTES)
-  let byteIndex = 0
-  let byte = 0
-  let bitInByte = 0
-
-  for (let y = 0; y < size; y++) {
-    const rowOffset = y * rowWidth
-    for (let x = 0; x < size; x++) {
-      if (data[rowOffset + x]! < data[rowOffset + x + 1]!) {
-        byte |= 128 >> bitInByte
-      }
-      if (++bitInByte === 8) {
-        hash[byteIndex++] = byte
-        byte = 0
-        bitInByte = 0
-      }
-    }
-  }
-
-  return hash
-}
-
-/**
  * Compute dHash (difference hash) for an image
  * Returns a Buffer of 128 bytes (1024 bits)
  */
@@ -135,7 +114,7 @@ export async function computeDHash(svg: string | Buffer, size = DEFAULT_SIZE): P
     .raw()
     .toBuffer()
 
-  return computeHashFromPixels(data, size, size + 1)
+  return Buffer.from(dHashFromPixels(data, size))
 }
 
 /**
@@ -145,23 +124,7 @@ export function hammingDistance(h1: Buffer, h2: Buffer): number {
   if (h1.length !== h2.length) {
     throw new Error(`Hash length mismatch: ${h1.length} vs ${h2.length}`)
   }
-
-  let distance = 0
-  for (let i = 0; i < h1.length; i += 4) {
-    let xor =
-      ((h1[i]! ^ h2[i]!) |
-        ((h1[i + 1]! ^ h2[i + 1]!) << 8) |
-        ((h1[i + 2]! ^ h2[i + 2]!) << 16) |
-        ((h1[i + 3]! ^ h2[i + 3]!) << 24)) >>>
-      0
-    // 32-bit popcount
-    xor = xor - ((xor >>> 1) & 0x55555555)
-    xor = (xor & 0x33333333) + ((xor >>> 2) & 0x33333333)
-    xor = (xor + (xor >>> 4)) & 0x0f0f0f0f
-    distance += Math.imul(xor, 0x01010101) >>> 24
-  }
-
-  return distance
+  return hammingDistanceAt(h1, h2)
 }
 
 /**
@@ -171,26 +134,6 @@ export function hashSimilarity(h1: Buffer, h2: Buffer): number {
   const distance = hammingDistance(h1, h2)
   const totalBits = h1.length * 8
   return 1 - distance / totalBits
-}
-
-/**
- * Fast Hamming distance against indexed hash (avoids Buffer allocation)
- */
-function hammingDistanceAtOffset(h1: Buffer, indexHashes: Buffer, offset: number): number {
-  let distance = 0
-  for (let i = 0; i < HASH_BYTES; i += 4) {
-    let xor =
-      ((h1[i]! ^ indexHashes[offset + i]!) |
-        ((h1[i + 1]! ^ indexHashes[offset + i + 1]!) << 8) |
-        ((h1[i + 2]! ^ indexHashes[offset + i + 2]!) << 16) |
-        ((h1[i + 3]! ^ indexHashes[offset + i + 3]!) << 24)) >>>
-      0
-    xor = xor - ((xor >>> 1) & 0x55555555)
-    xor = (xor & 0x33333333) + ((xor >>> 2) & 0x33333333)
-    xor = (xor + (xor >>> 4)) & 0x0f0f0f0f
-    distance += Math.imul(xor, 0x01010101) >>> 24
-  }
-  return distance
 }
 
 /**
@@ -211,21 +154,10 @@ export async function fetchIconSvg(name: string): Promise<string> {
 }
 
 /**
- * Icon index with precomputed hashes (binary format)
- */
-export interface IconIndex {
-  names: string[]
-  hashes: Buffer
-}
-
-/**
  * Load index from binary files (gzipped)
  */
 export function loadIndex(namesGz: Buffer, hashesGz: Buffer): IconIndex {
-  const namesStr = gunzipSync(namesGz).toString('utf-8')
-  const names = namesStr.split('\n').filter(Boolean)
-  const hashes = gunzipSync(hashesGz)
-  return { names, hashes }
+  return parseIndex(gunzipSync(namesGz).toString('utf-8'), gunzipSync(hashesGz))
 }
 
 /**
@@ -236,44 +168,8 @@ export async function findMatches(
   index: IconIndex,
   options: MatchOptions = {}
 ): Promise<IconMatch[]> {
-  const { size = DEFAULT_SIZE, limit = 10, threshold = 0.8, prefixes, prefer } = options
-
-  const inputHash = await computeDHash(svg, size)
-
-  const prefixSet = prefixes?.length ? new Set(prefixes) : null
-  const matches: IconMatch[] = []
-
-  const thresholdDist = Math.floor((1 - threshold) * HASH_BYTES * 8)
-
-  for (let i = 0; i < index.names.length; i++) {
-    const name = index.names[i]!
-
-    if (prefixSet) {
-      const prefix = name.split(':')[0]
-      if (!prefix || !prefixSet.has(prefix)) continue
-    }
-
-    const dist = hammingDistanceAtOffset(inputHash, index.hashes, i * HASH_BYTES)
-    if (dist > thresholdDist) continue
-
-    const similarity = 1 - dist / (HASH_BYTES * 8)
-
-    if (similarity >= threshold) {
-      matches.push({ name, similarity })
-    }
-  }
-
-  const preferSet = prefer?.length ? new Set(prefer) : null
-  return matches
-    .sort((a, b) => {
-      // Apply preference bonus (5%) to preferred icon sets
-      const aPrefix = a.name.split(':')[0] ?? ''
-      const bPrefix = b.name.split(':')[0] ?? ''
-      const aBonus = preferSet?.has(aPrefix) ? 0.02 : 0
-      const bBonus = preferSet?.has(bPrefix) ? 0.02 : 0
-      return (b.similarity + bBonus) - (a.similarity + aBonus)
-    })
-    .slice(0, limit)
+  const { size = DEFAULT_SIZE, ...matching } = options
+  return findMatchesByHash(await computeDHash(svg, size), index, matching)
 }
 
 interface IconInput {
