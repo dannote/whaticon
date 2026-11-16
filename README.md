@@ -113,6 +113,8 @@ const index = parseIndex(namesText, hashesBytes)
 const matches = findMatchesByHash(dHashFromPixels(grayscalePixels), index, { threshold: 0.9 })
 ```
 
+Icons whose hashes are identical, as sets that copy another's are, come back as one match with the others in `siblings`, led by a `prefer`red set's icon. An index's `metadata.json` records the `scheme` it was hashed with; `isCompatibleIndex(metadata)` tells whether this version hashes the same way.
+
 ## Building Custom Index
 
 ```typescript

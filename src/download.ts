@@ -4,6 +4,8 @@ import { join } from 'path'
 import { Readable } from 'stream'
 import { finished } from 'stream/promises'
 
+import { HASH_SCHEME, isCompatibleIndex } from './hash.js'
+
 const GITHUB_REPO = 'dannote/whaticon'
 const INDEX_VERSION = '1' // Bump when index format changes
 const CACHE_DIR = join(homedir(), '.cache', 'whaticon', `v${INDEX_VERSION}`)
@@ -88,6 +90,11 @@ export async function downloadIndex(
 
   // Verify
   const metadata = JSON.parse(readFileSync(paths.metadata, 'utf-8'))
+  if (!isCompatibleIndex(metadata)) {
+    throw new Error(
+      `The ${variant} index was hashed as ${metadata.scheme}, not ${HASH_SCHEME}; update whaticon`
+    )
+  }
   log(`Downloaded ${metadata.icons} icons from ${metadata.prefixes.length} sets`)
 }
 

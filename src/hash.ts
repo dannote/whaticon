@@ -7,6 +7,8 @@
 export interface IconMatch {
   name: string
   similarity: number
+  /** Other indexed icons whose hashes equal this one's, such as a set's copy of another's. */
+  siblings?: string[]
 }
 
 export interface HashMatchOptions {
@@ -31,6 +33,18 @@ export const DEFAULT_SIZE = 32
 
 /** Bytes in one hash: one bit for each of the 32 by 32 comparisons. */
 export const HASH_BYTES = 128
+
+/**
+ * How the hashes in an index were made: a difference hash on a 32 by 32 grid, from a grayscale
+ * image 33 pixels wide. An index records it in its metadata, and one made another way does not
+ * match hashes made this way.
+ */
+export const HASH_SCHEME = 'dhash-32'
+
+/** Whether an index's metadata says it was hashed as this version hashes; older ones say nothing. */
+export function isCompatibleIndex(metadata: { scheme?: string }): boolean {
+  return (metadata.scheme ?? HASH_SCHEME) === HASH_SCHEME
+}
 
 /** How much a preferred icon set's similarity counts up when results are sorted. */
 const PREFERENCE_BONUS = 0.02
@@ -83,12 +97,33 @@ export function hammingDistanceAt(hash: Uint8Array, hashes: Uint8Array, offset =
   return distance
 }
 
-/** An index from its two files once ungzipped: names one per line, and the hashes in order. */
+/**
+ * An index from its two files once ungzipped: names one per line, and the hashes in order, one
+ * for each name.
+ */
 export function parseIndex(names: string, hashes: Uint8Array): IconIndex {
-  return { names: names.split('\n').filter(Boolean), hashes }
+  const index = { names: names.split('\n').filter(Boolean), hashes }
+  if (hashes.length !== index.names.length * HASH_BYTES) {
+    throw new Error(
+      `Index holds ${hashes.length} hash bytes for ${index.names.length} names, expected ${index.names.length * HASH_BYTES}`
+    )
+  }
+  return index
 }
 
-/** The indexed icons whose hashes are closest to `hash`, most similar first. */
+/** Whether the hashes at two positions in an index are the same. */
+function sameHash(hashes: Uint8Array, a: number, b: number): boolean {
+  for (let i = 0; i < HASH_BYTES; i++) {
+    if (hashes[a * HASH_BYTES + i] !== hashes[b * HASH_BYTES + i]) return false
+  }
+  return true
+}
+
+/**
+ * The indexed icons whose hashes are closest to `hash`, most similar first. Icons with identical
+ * hashes, as icon sets that copy another's are, fold into one match with the rest as its
+ * `siblings`, led by a preferred set's icon, so `limit` counts different icons.
+ */
 export function findMatchesByHash(
   hash: Uint8Array,
   index: IconIndex,
@@ -97,20 +132,27 @@ export function findMatchesByHash(
   const { limit = 10, threshold = 0.8, prefixes, prefer } = options
   const bits = hash.length * 8
   const prefixSet = prefixes?.length ? new Set(prefixes) : null
+  const preferSet = prefer?.length ? new Set(prefer) : null
   const thresholdDist = Math.floor((1 - threshold) * bits)
-  const matches: IconMatch[] = []
+  const prefixOf = (name: string) => name.split(':')[0] ?? ''
+  const found: { position: number; similarity: number }[] = []
   for (let i = 0; i < index.names.length; i++) {
-    const name = index.names[i]!
-    if (prefixSet && !prefixSet.has(name.split(':')[0] ?? '')) continue
+    if (prefixSet && !prefixSet.has(prefixOf(index.names[i]!))) continue
     const distance = hammingDistanceAt(hash, index.hashes, i * hash.length)
     if (distance > thresholdDist) continue
     const similarity = 1 - distance / bits
-    if (similarity >= threshold) matches.push({ name, similarity })
+    if (similarity >= threshold) found.push({ position: i, similarity })
   }
-  const preferSet = prefer?.length ? new Set(prefer) : null
-  const bonus = (match: IconMatch) =>
-    preferSet?.has(match.name.split(':')[0] ?? '') ? PREFERENCE_BONUS : 0
-  return matches
-    .sort((a, b) => b.similarity + bonus(b) - (a.similarity + bonus(a)))
-    .slice(0, limit)
+  const bonus = (position: number) =>
+    preferSet?.has(prefixOf(index.names[position]!)) ? PREFERENCE_BONUS : 0
+  found.sort((a, b) => b.similarity + bonus(b.position) - (a.similarity + bonus(a.position)))
+
+  const matches: (IconMatch & { position: number })[] = []
+  for (const { position, similarity } of found) {
+    const same = matches.find((match) => sameHash(index.hashes, match.position, position))
+    const name = index.names[position]!
+    if (same) (same.siblings ??= []).push(name)
+    else if (matches.length < limit) matches.push({ name, similarity, position })
+  }
+  return matches.map(({ position: _position, ...match }) => match)
 }

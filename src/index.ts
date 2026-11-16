@@ -14,8 +14,10 @@ import {
 } from './hash.js'
 
 export {
+  HASH_SCHEME,
   dHashFromPixels,
   findMatchesByHash,
+  isCompatibleIndex,
   parseIndex,
   type HashMatchOptions,
   type IconIndex,
@@ -48,7 +50,9 @@ function serializeNode(node: SvgNode): string {
   const children = (el.children ?? []).map(serializeNode).join('')
   const tag = el.tagName ?? 'g'
 
-  return children ? `<${tag}${attrs ? ' ' + attrs : ''}>${children}</${tag}>` : `<${tag}${attrs ? ' ' + attrs : ''}/>`
+  return children
+    ? `<${tag}${attrs ? ' ' + attrs : ''}>${children}</${tag}>`
+    : `<${tag}${attrs ? ' ' + attrs : ''}/>`
 }
 
 function normalizeSvgColors(svg: string): string {

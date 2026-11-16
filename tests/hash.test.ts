@@ -2,7 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
 
-import { dHashFromPixels, findMatchesByHash, parseIndex } from '../src/hash.ts'
+import {
+  HASH_BYTES,
+  HASH_SCHEME,
+  dHashFromPixels,
+  findMatchesByHash,
+  isCompatibleIndex,
+  parseIndex
+} from '../src/hash.ts'
 import { computeDHash, loadIndex } from '../src/index.ts'
 
 const SQUARE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>`
@@ -29,7 +36,9 @@ describe('hash without Node', () => {
     const hash = index.hashes.slice(at * 128, (at + 1) * 128)
 
     const [best] = findMatchesByHash(hash, index, { limit: 1, threshold: 0.99, prefer: ['lucide'] })
-    expect(best).toEqual({ name: 'lucide:square', similarity: 1 })
+    expect(best).toMatchObject({ name: 'lucide:square', similarity: 1 })
+    // Tabler's square hashes the same, so it folds into Lucide's, which is preferred.
+    expect(best?.siblings).toContain('tabler:square')
   })
 
   test('rejects pixels too few for the grid', () => {
@@ -39,5 +48,28 @@ describe('hash without Node', () => {
   test('the hash module imports nothing from Node', () => {
     const source = readFileSync(resolve(import.meta.dir, '../src/hash.ts'), 'utf8')
     expect(source).not.toMatch(/^import /m)
+  })
+
+  test('folds icons with identical hashes into one match, led by a preferred set', () => {
+    const hash = (fill: number) => new Uint8Array(HASH_BYTES).fill(fill)
+    const hashes = new Uint8Array(HASH_BYTES * 4)
+    hashes.set(hash(0xff), 0)
+    hashes.set(hash(0xff), HASH_BYTES)
+    hashes.set(hash(0xff), HASH_BYTES * 2)
+    hashes.set(hash(0xfe), HASH_BYTES * 3)
+    const index = parseIndex('mdi:a\nmaterial:a\ntabler:a\nlucide:b', hashes)
+
+    const matches = findMatchesByHash(hash(0xff), index, { prefer: ['material'], limit: 2 })
+    expect(matches).toEqual([
+      { name: 'material:a', similarity: 1, siblings: ['mdi:a', 'tabler:a'] },
+      { name: 'lucide:b', similarity: 1 - 128 / 1024 }
+    ])
+  })
+
+  test('refuses an index whose hashes do not fit its names, or hashed another way', () => {
+    expect(() => parseIndex('a:b\nc:d', new Uint8Array(HASH_BYTES))).toThrow()
+    expect(isCompatibleIndex({})).toBe(true)
+    expect(isCompatibleIndex({ scheme: HASH_SCHEME })).toBe(true)
+    expect(isCompatibleIndex({ scheme: 'phash-64' })).toBe(false)
   })
 })

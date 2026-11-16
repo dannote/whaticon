@@ -13,7 +13,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { gzipSync } from 'zlib'
 
-import { buildIndex } from '../src/index.ts'
+import { buildIndex, HASH_SCHEME } from '../src/index.ts'
 
 const INDEX_VARIANTS = {
   core: ['lucide', 'heroicons', 'tabler'],
@@ -137,6 +137,7 @@ async function buildVariant(
   // Write metadata
   const metadata = {
     version: 1,
+    scheme: HASH_SCHEME,
     variant: name,
     prefixes: prefixes.filter((p) => allIcons.some((i) => i.name.startsWith(`${p}:`))),
     icons: allIcons.length,
