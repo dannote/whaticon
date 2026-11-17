@@ -172,6 +172,8 @@ export async function buildIndex(
   icons: IconInput[],
   onProgress?: (current: number, total: number) => void
 ): Promise<{ names: string; hashes: Buffer; skipped: string[] }> {
+  // Without sharp no icon renders; that fails the build rather than skipping every icon.
+  if (icons.length > 0) await loadSharp()
   const names: string[] = []
   const hashes: Buffer[] = []
   const skipped: string[] = []
