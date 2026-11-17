@@ -62,7 +62,6 @@
   },
   "dependencies": {
     "citty": "^0.2.2",
-    "sharp": "^0.35.5",
     "valibot": "^1.5.0"
   },
   "devDependencies": {
@@ -84,6 +83,7 @@
     "oxfmt": "^0.79.0",
     "oxlint": "^1.94.0",
     "oxlint-tsgolint": "^7.0.2007",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2"
   },
   "packageManager": "bun@1.4.2",
@@ -92,5 +92,13 @@
   },
   "imports": {
     "#src/*": "./src/*"
+  },
+  "peerDependencies": {
+    "sharp": "^0.35.5"
+  },
+  "peerDependenciesMeta": {
+    "sharp": {
+      "optional": true
+    }
   }
 }

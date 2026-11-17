@@ -7,7 +7,13 @@ Given an SVG, `whaticon` renders it and compares against indexed icons using per
 ## Installation
 
 ```bash
-npm install whaticon
+npm install whaticon sharp
+```
+
+[sharp](https://sharp.pixelplumbing.com/) renders SVG for the CLI and the Node API. It is an optional peer dependency, so a host that rasterizes icons itself and uses only `whaticon/hash` can leave it out. To run the CLI without installing anything:
+
+```bash
+npx -p whaticon -p sharp whaticon icon.svg
 ```
 
 ## CLI Usage
