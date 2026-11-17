@@ -30,13 +30,17 @@
     "data"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "build:index": "bun run scripts/build-index.ts",
     "build:all-indexes": "bun run scripts/build-all-indexes.ts",
+    "install:icon-sets": "bun run scripts/install-icon-sets.ts",
     "release:indexes": "bun run scripts/release-indexes.ts",
     "test": "bun test",
-    "lint": "oxlint src/",
-    "format": "oxfmt --write src/ scripts/",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint --deny-warnings --type-aware --type-check src scripts tests",
+    "format": "oxfmt src scripts tests",
+    "format:check": "oxfmt --check src scripts tests",
+    "check": "bun run typecheck && bun run lint && bun run format:check",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
@@ -57,9 +61,9 @@
     "url": "git+https://github.com/dannote/whaticon.git"
   },
   "dependencies": {
-    "citty": "^0.2.0",
-    "sharp": "^0.33.0",
-    "svg-parser": "^2.0.4"
+    "citty": "^0.2.2",
+    "sharp": "^0.35.5",
+    "valibot": "^1.5.0"
   },
   "devDependencies": {
     "@iconify-json/bi": "^1.2.7",
@@ -74,10 +78,16 @@
     "@iconify-json/ph": "^1.2.2",
     "@iconify-json/ri": "^1.2.7",
     "@iconify-json/tabler": "^1.2.26",
-    "@types/node": "^22.0.0",
-    "@types/svg-parser": "^2.0.6",
-    "oxfmt": "^0.26.0",
-    "oxlint": "^0.16.0",
-    "typescript": "^5.7.0"
+    "@iconify/utils": "^3.1.7",
+    "@types/bun": "^1.4.4",
+    "@types/node": "^24.19.2",
+    "oxfmt": "^0.79.0",
+    "oxlint": "^1.94.0",
+    "oxlint-tsgolint": "^7.0.2007",
+    "typescript": "^7.0.2"
+  },
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

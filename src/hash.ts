@@ -35,15 +35,16 @@ export const DEFAULT_SIZE = 32
 export const HASH_BYTES = 128
 
 /**
- * How the hashes in an index were made: a difference hash on a 32 by 32 grid, from a grayscale
- * image 33 pixels wide. An index records it in its metadata, and one made another way does not
- * match hashes made this way.
+ * How the hashes in an index were made: a difference hash on a 32 by 32 grid, from an image 33
+ * pixels wide and 32 tall of how much the icon's shapes cover each pixel, whatever their color.
+ * The icon is drawn at the largest size that fits that box, centered. An index records the
+ * scheme in its metadata, and one made another way does not match hashes made this way.
  */
-export const HASH_SCHEME = 'dhash-32'
+export const HASH_SCHEME = 'dhash-32-coverage'
 
-/** Whether an index's metadata says it was hashed as this version hashes; older ones say nothing. */
+/** Whether an index's metadata says it was hashed as this version hashes. */
 export function isCompatibleIndex(metadata: { scheme?: string }): boolean {
-  return (metadata.scheme ?? HASH_SCHEME) === HASH_SCHEME
+  return metadata.scheme === HASH_SCHEME
 }
 
 /** How much a preferred icon set's similarity counts up when results are sorted. */
@@ -52,8 +53,7 @@ const PREFERENCE_BONUS = 0.02
 /**
  * The difference hash (dHash) of a grayscale image `size + 1` pixels wide and `size` tall, row by
  * row, one byte per pixel: a bit for each pixel darker than the one to its right. Rasterize the
- * SVG as the index was built: its shapes in black on white, fitted and centered in that box,
- * then converted to grayscale.
+ * SVG as `HASH_SCHEME` describes, each pixel `255 - alpha` of the icon drawn on transparency.
  */
 export function dHashFromPixels(pixels: Uint8Array, size = DEFAULT_SIZE): Uint8Array {
   const rowWidth = size + 1
@@ -67,7 +67,7 @@ export function dHashFromPixels(pixels: Uint8Array, size = DEFAULT_SIZE): Uint8A
   for (let y = 0; y < size; y++) {
     const rowOffset = y * rowWidth
     for (let x = 0; x < size; x++) {
-      if (pixels[rowOffset + x]! < pixels[rowOffset + x + 1]!) byte |= 128 >> bitInByte
+      if ((pixels[rowOffset + x] ?? 0) < (pixels[rowOffset + x + 1] ?? 0)) byte |= 128 >> bitInByte
       if (++bitInByte === 8) {
         hash[byteIndex++] = byte
         byte = 0
@@ -83,10 +83,10 @@ export function hammingDistanceAt(hash: Uint8Array, hashes: Uint8Array, offset =
   let distance = 0
   for (let i = 0; i < hash.length; i += 4) {
     let xor =
-      ((hash[i]! ^ hashes[offset + i]!) |
-        ((hash[i + 1]! ^ hashes[offset + i + 1]!) << 8) |
-        ((hash[i + 2]! ^ hashes[offset + i + 2]!) << 16) |
-        ((hash[i + 3]! ^ hashes[offset + i + 3]!) << 24)) >>>
+      (((hash[i] ?? 0) ^ (hashes[offset + i] ?? 0)) |
+        (((hash[i + 1] ?? 0) ^ (hashes[offset + i + 1] ?? 0)) << 8) |
+        (((hash[i + 2] ?? 0) ^ (hashes[offset + i + 2] ?? 0)) << 16) |
+        (((hash[i + 3] ?? 0) ^ (hashes[offset + i + 3] ?? 0)) << 24)) >>>
       0
     // 32-bit popcount
     xor = xor - ((xor >>> 1) & 0x55555555)
@@ -137,20 +137,20 @@ export function findMatchesByHash(
   const prefixOf = (name: string) => name.split(':')[0] ?? ''
   const found: { position: number; similarity: number }[] = []
   for (let i = 0; i < index.names.length; i++) {
-    if (prefixSet && !prefixSet.has(prefixOf(index.names[i]!))) continue
+    if (prefixSet && !prefixSet.has(prefixOf(index.names[i] ?? ''))) continue
     const distance = hammingDistanceAt(hash, index.hashes, i * hash.length)
     if (distance > thresholdDist) continue
     const similarity = 1 - distance / bits
     if (similarity >= threshold) found.push({ position: i, similarity })
   }
   const bonus = (position: number) =>
-    preferSet?.has(prefixOf(index.names[position]!)) ? PREFERENCE_BONUS : 0
+    preferSet?.has(prefixOf(index.names[position] ?? '')) ? PREFERENCE_BONUS : 0
   found.sort((a, b) => b.similarity + bonus(b.position) - (a.similarity + bonus(a.position)))
 
   const matches: (IconMatch & { position: number })[] = []
   for (const { position, similarity } of found) {
     const same = matches.find((match) => sameHash(index.hashes, match.position, position))
-    const name = index.names[position]!
+    const name = index.names[position] ?? ''
     if (same) (same.siblings ??= []).push(name)
     else if (matches.length < limit) matches.push({ name, similarity, position })
   }

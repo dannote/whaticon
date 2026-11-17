@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import {
   HASH_BYTES,
@@ -68,7 +68,8 @@ describe('hash without Node', () => {
 
   test('refuses an index whose hashes do not fit its names, or hashed another way', () => {
     expect(() => parseIndex('a:b\nc:d', new Uint8Array(HASH_BYTES))).toThrow()
-    expect(isCompatibleIndex({})).toBe(true)
+    expect(isCompatibleIndex({})).toBe(false)
+    expect(isCompatibleIndex({ scheme: 'dhash-32' })).toBe(false)
     expect(isCompatibleIndex({ scheme: HASH_SCHEME })).toBe(true)
     expect(isCompatibleIndex({ scheme: 'phash-64' })).toBe(false)
   })
