@@ -10,18 +10,18 @@
         "valibot": "^1.5.0",
       },
       "devDependencies": {
-        "@iconify-json/bi": "^1.2.7",
-        "@iconify-json/carbon": "^1.2.18",
-        "@iconify-json/fa6-regular": "^1.2.4",
-        "@iconify-json/fa6-solid": "^1.2.4",
-        "@iconify-json/fluent": "^1.2.37",
-        "@iconify-json/heroicons": "^1.2.3",
-        "@iconify-json/ion": "^1.2.6",
-        "@iconify-json/lucide": "^1.2.86",
-        "@iconify-json/mdi": "^1.2.3",
-        "@iconify-json/ph": "^1.2.2",
-        "@iconify-json/ri": "^1.2.7",
-        "@iconify-json/tabler": "^1.2.26",
+        "@iconify-json/bi": "latest",
+        "@iconify-json/carbon": "latest",
+        "@iconify-json/fa6-regular": "latest",
+        "@iconify-json/fa6-solid": "latest",
+        "@iconify-json/fluent": "latest",
+        "@iconify-json/heroicons": "latest",
+        "@iconify-json/ion": "latest",
+        "@iconify-json/lucide": "latest",
+        "@iconify-json/mdi": "latest",
+        "@iconify-json/ph": "latest",
+        "@iconify-json/ri": "latest",
+        "@iconify-json/tabler": "latest",
         "@iconify/utils": "^3.1.7",
         "@types/bun": "^1.4.4",
         "@types/node": "^24.19.2",
@@ -39,27 +39,27 @@
 
     "@iconify-json/bi": ["@iconify-json/bi@1.2.7", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-IPz8WNxmLkH1I9msl+0Q4OnmjjvP4uU0Z61a4i4sqonB6vKSbMGUWuGn8/YuuszlReVj8rf+3gNv5JU8Xoljyg=="],
 
-    "@iconify-json/carbon": ["@iconify-json/carbon@1.2.18", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-Grb13E6r/RqTEV4Sqd/BQR2FUt57U2WLuticJ5H8JbTdHLop1LmdePu3EJJA3Xi8DcWRbD6OnC133hKfOwlgtg=="],
+    "@iconify-json/carbon": ["@iconify-json/carbon@1.2.30", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-54GoLfi17qzhbdwOAbYvzpRBz2QNYAekghLyEHv1GpQN/Jmd3c/la8T71109n8lfmyWknPcLi/+OTAIT1VL0IA=="],
 
     "@iconify-json/fa6-regular": ["@iconify-json/fa6-regular@1.2.4", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-fnUS/MLj3ZAp29oRsC8/aY8Wau7NIg7VesTz3jCcE6VJBzcz95Yxp/Dl5yHvkP+aQxrNw5Lj3nrOXB4nQh+oNA=="],
 
     "@iconify-json/fa6-solid": ["@iconify-json/fa6-solid@1.2.4", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-LmDNNdJVyvF5mPm1yxWvL8KjCc/E8LzoqnF1LNTVpyY2ZJRUlGOWuPIThdbuFBF2IovgttkIyumhyqfmlHdwKg=="],
 
-    "@iconify-json/fluent": ["@iconify-json/fluent@1.2.37", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-wNm8JXU1eV+M3ONGIG0pwb4X8PoEfYDdLRt0xCUcOofoy0WxXRldB0dkmILnXhLZmCNVWRzt9z/3I6xS+8YNGQ=="],
+    "@iconify-json/fluent": ["@iconify-json/fluent@1.2.62", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-KCwk3D5pjLPjOWRkCKCndVNHqMVzgpBPQppumZu3vnrFKJ3eg1AVsWmNmF1w4zC7HzC1CMAByr/8Fzs5CYIoRA=="],
 
     "@iconify-json/heroicons": ["@iconify-json/heroicons@1.2.3", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-n+vmCEgTesRsOpp5AB5ILB6srsgsYK+bieoQBNlafvoEhjVXLq8nIGN4B0v/s4DUfa0dOrjwE/cKJgIKdJXOEg=="],
 
-    "@iconify-json/ion": ["@iconify-json/ion@1.2.6", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-JftEXKfjvJNn3SrGeSBrG/waRkjeTpLdMLNLwpAX4NgI14QgJoAeXEh2iZjNPqioAkeIgErX4Bi6mnFwpjk3BQ=="],
+    "@iconify-json/ion": ["@iconify-json/ion@1.2.7", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-ZJNG5kLCbTPr68mdP0jx6Q3lB9AMEQKO2+VvIjuJ2llGFICBLD+cvESn/qGDRIqSfk2D3PrFMf/Qg8WKIUV7cg=="],
 
-    "@iconify-json/lucide": ["@iconify-json/lucide@1.2.86", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-W/Jz7/gGOkI9u43r+UHmQtZtcyw2YLvMwiHa01WV6V4DYltrPNXiD+bCa+djV8LZB1uwF8CiympOMIbgiQ74nA=="],
+    "@iconify-json/lucide": ["@iconify-json/lucide@1.2.156", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-IOB3g2X+cmpoEPcjEbGfpDWPPzXioeDW2gnYgaNxYSaVEHyM4fQqP2uz29cdRQJbQwo5CTQ8D9NJnATeCQKatQ=="],
 
     "@iconify-json/mdi": ["@iconify-json/mdi@1.2.3", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg=="],
 
     "@iconify-json/ph": ["@iconify-json/ph@1.2.2", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-PgkEZNtqa8hBGjHXQa4pMwZa93hmfu8FUSjs/nv4oUU6yLsgv+gh9nu28Kqi8Fz9CCVu4hj1MZs9/60J57IzFw=="],
 
-    "@iconify-json/ri": ["@iconify-json/ri@1.2.7", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-j/Fkb8GlWY5y/zLj1BGxWRtDzuJFrI7562zLw+iQVEykieBgew43+r8qAvtSajvb75MfUIHjsNOYQPRD8FfLfw=="],
+    "@iconify-json/ri": ["@iconify-json/ri@1.2.10", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-WWMhoncVVM+Xmu9T5fgu2lhYRrKTEWhKk3Com0KiM111EeEsRLiASjpsFKnC/SrB6covhUp95r2mH8tGxhgd5Q=="],
 
-    "@iconify-json/tabler": ["@iconify-json/tabler@1.2.26", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-92G+ZD70AZgeJf07JfQzH+isnai6DwPcMBuF/qL1F+xAxdXCJzGd3w2RmsRvOmB+w1ImmWEEDms50QivQIjd6g=="],
+    "@iconify-json/tabler": ["@iconify-json/tabler@1.2.46", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-iyEZEUhHV4x1ZbNzzjk3i6Z+MH5h5nXipqKaH7+bUlnoQwzn7fNjWRSqwWtwQ4PYN6WM+N/fLQC/48TRto26qQ=="],
 
     "@iconify/types": ["@iconify/types@2.0.0", "", {}, "sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg=="],
 
