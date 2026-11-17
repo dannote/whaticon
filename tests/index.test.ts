@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'fs'
-import { resolve } from 'path'
+import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 import {
   computeDHash,
@@ -11,6 +11,7 @@ import {
   loadIndex,
   svgToPixels
 } from '../src/index.ts'
+import { iconSvg } from './icons.ts'
 
 const SIMPLE_RECT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <rect x="4" y="4" width="16" height="16" fill="black"/>
@@ -18,10 +19,6 @@ const SIMPLE_RECT = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
 
 const SIMPLE_CIRCLE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
   <circle cx="12" cy="12" r="8" fill="black"/>
-</svg>`
-
-const SIMPLE_LINE = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path stroke="black" stroke-width="2" d="M4 12h16"/>
 </svg>`
 
 describe('svgToPixels', () => {
@@ -78,6 +75,28 @@ describe('computeDHash', () => {
   })
 })
 
+describe('hashing as the index hashes', () => {
+  const dataDir = resolve(import.meta.dirname, '../data')
+  const index = loadIndex(
+    readFileSync(resolve(dataDir, 'names.txt.gz')),
+    readFileSync(resolve(dataDir, 'hashes.bin.gz'))
+  )
+
+  test('an icon narrower than it is tall hashes as its own index entry', async () => {
+    const [match] = await findMatches(iconSvg('fa6-solid:0'), index, { limit: 1 })
+    expect(match).toMatchObject({ name: 'fa6-solid:0', similarity: 1 })
+  })
+
+  test('an icon hashes the same in any color', async () => {
+    const black = iconSvg('lucide:home')
+    const white = black.replace('<svg ', '<svg color="white" ')
+    const brand = black.replace('<svg ', '<svg color="#3b82f6" ')
+    expect(white).not.toBe(black)
+    expect(hammingDistance(await computeDHash(white), await computeDHash(black))).toBe(0)
+    expect(hammingDistance(await computeDHash(brand), await computeDHash(black))).toBe(0)
+  })
+})
+
 describe('hammingDistance', () => {
   test('identical hashes have distance 0', async () => {
     const hash = await computeDHash(SIMPLE_RECT)
@@ -128,18 +147,25 @@ describe('hashSimilarity', () => {
 })
 
 describe('fetchIconSvg', () => {
-  test('fetches valid SVG from Iconify', async () => {
-    const svg = await fetchIconSvg('lucide:home')
-    expect(svg).toContain('<svg')
-    expect(svg).toContain('</svg>')
+  afterEach(() => {
+    mock.restore()
+  })
+
+  test('fetches the SVG the Iconify API serves for the icon', async () => {
+    const fetch = spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<svg></svg>'))
+    expect(await fetchIconSvg('lucide:home')).toBe('<svg></svg>')
+    expect(fetch).toHaveBeenCalledWith('https://api.iconify.design/lucide/home.svg')
   })
 
   test('throws on invalid icon name', async () => {
-    await expect(fetchIconSvg('invalid')).rejects.toThrow('Invalid icon name')
+    expect(await fetchIconSvg('invalid').catch(String)).toContain('Invalid icon name')
   })
 
   test('throws on non-existent icon', async () => {
-    await expect(fetchIconSvg('lucide:nonexistent-icon-xyz')).rejects.toThrow('Failed to fetch')
+    spyOn(globalThis, 'fetch').mockResolvedValue(new Response('404', { status: 404 }))
+    expect(await fetchIconSvg('lucide:nonexistent-icon-xyz').catch(String)).toContain(
+      'Failed to fetch'
+    )
   })
 })
 
@@ -175,15 +201,15 @@ describe('findMatches', () => {
   const index = loadIndex(namesGz, hashesGz)
 
   test('finds exact match for known icon', async () => {
-    const svg = await fetchIconSvg('lucide:home')
+    const svg = iconSvg('lucide:home')
     const matches = await findMatches(svg, index, { limit: 1 })
 
     expect(matches.length).toBe(1)
-    expect(matches[0]!.similarity).toBeGreaterThan(0.95)
+    expect(matches[0]?.similarity).toBeGreaterThan(0.95)
   })
 
   test('respects limit parameter', async () => {
-    const svg = await fetchIconSvg('lucide:home')
+    const svg = iconSvg('lucide:home')
 
     const m5 = await findMatches(svg, index, { limit: 5 })
     const m10 = await findMatches(svg, index, { limit: 10 })
@@ -193,7 +219,7 @@ describe('findMatches', () => {
   })
 
   test('respects threshold parameter', async () => {
-    const svg = await fetchIconSvg('lucide:home')
+    const svg = iconSvg('lucide:home')
 
     const m90 = await findMatches(svg, index, { threshold: 0.9, limit: 100 })
     const m80 = await findMatches(svg, index, { threshold: 0.8, limit: 100 })
@@ -206,7 +232,7 @@ describe('findMatches', () => {
   })
 
   test('filters by prefix', async () => {
-    const svg = await fetchIconSvg('lucide:home')
+    const svg = iconSvg('lucide:home')
     const matches = await findMatches(svg, index, {
       prefixes: ['lucide'],
       limit: 20
@@ -218,7 +244,7 @@ describe('findMatches', () => {
   })
 
   test('prefer option sorts preferred sets first at equal similarity', async () => {
-    const svg = await fetchIconSvg('mdi:check')
+    const svg = iconSvg('mdi:check')
     const matches = await findMatches(svg, index, {
       prefer: ['lucide'],
       threshold: 0.85,
@@ -226,9 +252,9 @@ describe('findMatches', () => {
     })
 
     // Find adjacent pairs with same similarity
-    for (let i = 0; i < matches.length - 1; i++) {
-      const curr = matches[i]!
-      const next = matches[i + 1]!
+    for (const [i, next] of matches.slice(1).entries()) {
+      const curr = matches[i]
+      if (!curr) continue
 
       if (Math.abs(curr.similarity - next.similarity) < 0.001) {
         const currIsLucide = curr.name.startsWith('lucide:')
@@ -243,12 +269,12 @@ describe('findMatches', () => {
   })
 
   test('results are sorted by similarity descending (with tolerance for prefer)', async () => {
-    const svg = await fetchIconSvg('lucide:home')
+    const svg = iconSvg('lucide:home')
     const matches = await findMatches(svg, index, { limit: 20 })
 
-    for (let i = 0; i < matches.length - 1; i++) {
+    for (const [i, next] of matches.slice(1).entries()) {
       // Allow small tolerance (0.001) for prefer-based reordering
-      expect(matches[i]!.similarity + 0.002).toBeGreaterThanOrEqual(matches[i + 1]!.similarity)
+      expect((matches[i]?.similarity ?? 0) + 0.002).toBeGreaterThanOrEqual(next.similarity)
     }
   })
 })
@@ -261,7 +287,7 @@ describe('visual similarity', () => {
 
   test('similar icons from different sets match', async () => {
     // Home icons should be visually similar across sets
-    const lucideHome = await fetchIconSvg('lucide:home')
+    const lucideHome = iconSvg('lucide:home')
     const matches = await findMatches(lucideHome, index, { threshold: 0.85, limit: 30 })
 
     const names = matches.map((m) => m.name)
@@ -274,8 +300,8 @@ describe('visual similarity', () => {
   })
 
   test('different icons have low similarity', async () => {
-    const home = await fetchIconSvg('lucide:home')
-    const search = await fetchIconSvg('lucide:search')
+    const home = iconSvg('lucide:home')
+    const search = iconSvg('lucide:search')
 
     const hHome = await computeDHash(home)
     const hSearch = await computeDHash(search)

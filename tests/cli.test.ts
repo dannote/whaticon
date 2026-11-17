@@ -1,7 +1,17 @@
-import { describe, expect, test } from 'bun:test'
-import { spawn } from 'child_process'
-import { writeFileSync, unlinkSync } from 'fs'
-import { resolve } from 'path'
+import { afterAll, describe, expect, test } from 'bun:test'
+import { spawn } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import * as v from 'valibot'
+
+import { iconSvg } from './icons.ts'
+
+const MatchesSchema = v.pipe(
+  v.string(),
+  v.parseJson(),
+  v.array(v.object({ name: v.string(), similarity: v.number() }))
+)
 
 const CLI = resolve(import.meta.dirname, '../dist/cli.js')
 
@@ -18,6 +28,16 @@ function run(args: string[]): Promise<{ stdout: string; stderr: string; code: nu
 }
 
 describe('CLI', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'whaticon-cli-'))
+  const house = join(dir, 'lucide-house.svg')
+  writeFileSync(house, iconSvg('lucide:house'))
+  const server = Bun.serve({ port: 0, fetch: () => new Response(iconSvg('lucide:house')) })
+
+  afterAll(async () => {
+    await server.stop()
+    rmSync(dir, { recursive: true, force: true })
+  })
+
   test('--help shows usage', async () => {
     const { stdout, code } = await run(['--help'])
 
@@ -27,8 +47,8 @@ describe('CLI', () => {
     expect(stdout).toContain('--threshold')
   })
 
-  test('--icon finds matches', async () => {
-    const { stdout, code } = await run(['--icon', 'lucide:home', '-n', '3'])
+  test('finds matches for an SVG file', async () => {
+    const { stdout, code } = await run([house, '-n', '3'])
 
     expect(code).toBe(0)
     expect(stdout).toContain('%')
@@ -36,18 +56,14 @@ describe('CLI', () => {
   })
 
   test('--json outputs JSON', async () => {
-    const { stdout, code } = await run(['--icon', 'lucide:home', '-n', '2', '--json'])
+    const { stdout, code } = await run([house, '-n', '2', '--json'])
 
     expect(code).toBe(0)
-    const data = JSON.parse(stdout)
-    expect(Array.isArray(data)).toBe(true)
-    expect(data.length).toBe(2)
-    expect(data[0]).toHaveProperty('name')
-    expect(data[0]).toHaveProperty('similarity')
+    expect(v.parse(MatchesSchema, stdout)).toHaveLength(2)
   })
 
   test('--prefix filters results', async () => {
-    const { stdout, code } = await run(['--icon', 'lucide:home', '-p', 'mdi', '-n', '5'])
+    const { stdout, code } = await run([house, '-p', 'mdi', '-n', '5'])
 
     expect(code).toBe(0)
     const lines = stdout.split('\n').filter((l) => l.includes('%'))
@@ -57,31 +73,30 @@ describe('CLI', () => {
   })
 
   test('--threshold filters by similarity', async () => {
-    const { stdout, code } = await run(['--icon', 'lucide:home', '-t', '0.95', '-n', '20', '--json'])
+    const { stdout, code } = await run([house, '-t', '0.95', '-n', '20', '--json'])
 
     expect(code).toBe(0)
-    const data = JSON.parse(stdout)
-    for (const match of data) {
+    for (const match of v.parse(MatchesSchema, stdout)) {
       expect(match.similarity).toBeGreaterThanOrEqual(0.95)
     }
   })
 
-  test('reads SVG file', async () => {
-    const tmpFile = '/tmp/test-icon.svg'
-    writeFileSync(
-      tmpFile,
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <rect x="4" y="4" width="16" height="16" fill="black"/>
-      </svg>`
-    )
+  test('names the icon a file draws first', async () => {
+    const { stdout, code } = await run([house, '-n', '1', '--json'])
+    expect(code).toBe(0)
+    expect(v.parse(MatchesSchema, stdout)).toMatchObject([{ name: 'lucide:house', similarity: 1 }])
+  })
 
-    try {
-      const { stdout, code } = await run([tmpFile, '-n', '3'])
-      expect(code).toBe(0)
-      expect(stdout).toContain('%')
-    } finally {
-      unlinkSync(tmpFile)
-    }
+  test('error on an invalid option', async () => {
+    const { stderr, code } = await run([house, '-t', 'high'])
+    expect(code).toBe(1)
+    expect(stderr).toContain('Invalid threshold')
+  })
+
+  test('error on an invalid icon name', async () => {
+    const { stderr, code } = await run(['--icon', 'home'])
+    expect(code).toBe(1)
+    expect(stderr).toContain('Invalid icon name')
   })
 
   test('error on missing file', async () => {
@@ -99,12 +114,7 @@ describe('CLI', () => {
   })
 
   test('--url fetches from URL', async () => {
-    const { stdout, code } = await run([
-      '--url',
-      'https://api.iconify.design/lucide/home.svg',
-      '-n',
-      '3'
-    ])
+    const { stdout, code } = await run(['--url', server.url.href, '-n', '3'])
 
     expect(code).toBe(0)
     expect(stdout).toContain('%')
