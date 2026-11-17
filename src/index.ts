@@ -1,5 +1,4 @@
 import { gunzipSync } from 'node:zlib'
-import sharp from 'sharp'
 
 import {
   DEFAULT_SIZE,
@@ -11,6 +10,8 @@ import {
   type IconIndex,
   type IconMatch
 } from './hash.js'
+
+import type { Sharp, SharpOptions } from 'sharp'
 
 export {
   DEFAULT_SIZE,
@@ -27,6 +28,27 @@ export {
 /** Indexes hold hashes of `DEFAULT_SIZE`, so a query is always hashed at that size. */
 export type MatchOptions = HashMatchOptions
 
+type SharpFactory = (input: Buffer, options?: SharpOptions) => Sharp
+
+let sharpModule: Promise<SharpFactory> | undefined
+
+/**
+ * sharp, which renders SVG here. It is an optional peer dependency, so hosts that rasterize
+ * themselves and use only `whaticon/hash` do not install it.
+ */
+function loadSharp(): Promise<SharpFactory> {
+  sharpModule ??= import('sharp').then(
+    (module) => module.default,
+    (error: unknown) => {
+      sharpModule = undefined
+      throw new Error('whaticon renders SVG with sharp; install it: npm install sharp', {
+        cause: error
+      })
+    }
+  )
+  return sharpModule
+}
+
 /**
  * An icon drawn in a `width` by `height` box as darkness on white: how much of each pixel its
  * shapes cover, whatever their color, so an icon drawn in white or in a brand color hashes as the
@@ -34,6 +56,7 @@ export type MatchOptions = HashMatchOptions
  * its own size, and centered as `HASH_SCHEME` describes.
  */
 async function coverage(svg: string | Buffer, width: number, height: number): Promise<Buffer> {
+  const sharp = await loadSharp()
   const input = typeof svg === 'string' ? Buffer.from(svg) : svg
   const own = await sharp(input).metadata()
   const scale = Math.min(width / (own.width || width), height / (own.height || height))
@@ -149,6 +172,8 @@ export async function buildIndex(
   icons: IconInput[],
   onProgress?: (current: number, total: number) => void
 ): Promise<{ names: string; hashes: Buffer; skipped: string[] }> {
+  // Without sharp no icon renders; that fails the build rather than skipping every icon.
+  if (icons.length > 0) await loadSharp()
   const names: string[] = []
   const hashes: Buffer[] = []
   const skipped: string[] = []
