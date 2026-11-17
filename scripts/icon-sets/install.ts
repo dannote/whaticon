@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Install the package of every icon set Iconify lists, without saving them to package.json,
- * so `build-all-indexes.ts` can index them all.
+ * so `indexes/build.ts` can index them all.
  */
 import { execFileSync } from 'node:child_process'
 import * as v from 'valibot'

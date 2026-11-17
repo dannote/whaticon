@@ -25,9 +25,9 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - run: bun run install:icon-sets
-      - run: bun run build:all-indexes
-      - run: bun run release:indexes
+      - run: bun run icon-sets:install
+      - run: bun run indexes:build
+      - run: bun run indexes:release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

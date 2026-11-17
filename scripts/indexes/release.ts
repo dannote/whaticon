@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Publish the indexes `build-all-indexes.ts` built as a GitHub release, tagged
+ * Publish the indexes `indexes/build.ts` built as a GitHub release, tagged
  * `index-v$VERSION`. The version defaults to today's date. An existing release is left alone:
  * clients may be downloading from it, so a rebuild gets a new version instead.
  */
@@ -9,7 +9,8 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import * as v from 'valibot'
 
-import { INDEXES_DIR, ManifestSchema } from './manifest.ts'
+import { INDEXES_DIR } from '../paths.ts'
+import { ManifestSchema } from './manifest.ts'
 
 const version = process.env.VERSION || new Date().toISOString().slice(0, 10).replaceAll('-', '.')
 const tag = `index-v${version}`

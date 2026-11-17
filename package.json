@@ -31,10 +31,10 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "build:index": "bun run scripts/build-index.ts",
-    "build:all-indexes": "bun run scripts/build-all-indexes.ts",
-    "install:icon-sets": "bun run scripts/install-icon-sets.ts",
-    "release:indexes": "bun run scripts/release-indexes.ts",
+    "indexes:bundle": "bun run scripts/indexes/bundle.ts",
+    "indexes:build": "bun run scripts/indexes/build.ts",
+    "icon-sets:install": "bun run scripts/icon-sets/install.ts",
+    "indexes:release": "bun run scripts/indexes/release.ts",
     "test": "bun test",
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint --deny-warnings --type-aware --type-check src scripts tests",
@@ -89,5 +89,8 @@
   "packageManager": "bun@1.4.2",
   "engines": {
     "node": ">=20.11.0"
+  },
+  "imports": {
+    "#src/*": "./src/*"
   }
 }
