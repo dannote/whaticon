@@ -7,7 +7,7 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
-import { DEFAULT_SIZE, buildIndex, type IconInput } from '../src/index.ts'
+import { buildIndex, type IconInput } from '../src/index.ts'
 
 export const CORE_SETS = ['lucide', 'heroicons', 'tabler']
 
@@ -28,14 +28,9 @@ export const POPULAR_SETS = [
 
 const require = createRequire(import.meta.url)
 
-/** The icons of a set, or none when its package is not installed. */
+/** The icons of a set, whose package must be installed. */
 export async function loadIconSet(prefix: string): Promise<IconInput[]> {
-  let path: string
-  try {
-    path = require.resolve(`@iconify-json/${prefix}/icons.json`)
-  } catch {
-    return []
-  }
+  const path = require.resolve(`@iconify-json/${prefix}/icons.json`)
   const set = quicklyValidateIconSet(JSON.parse(await readFile(path, 'utf-8')) as unknown)
   if (!set) throw new Error(`@iconify-json/${prefix} holds no valid icon set`)
   return Object.keys(set.icons).flatMap((name) => {
@@ -68,11 +63,14 @@ export async function indexSets(prefixes: string[]): Promise<BuiltIndex> {
   const found = sets.filter((set) => set.icons.length > 0)
   const icons = found.flatMap((set) => set.icons)
   const started = performance.now()
-  const { names, hashes } = await buildIndex(icons, DEFAULT_SIZE, (current, total) => {
+  const { names, hashes, skipped } = await buildIndex(icons, (current, total) => {
     const rate = Math.round(current / ((performance.now() - started) / 1000))
     process.stderr.write(`\r  ${current}/${total} (${rate}/s)`)
   })
   process.stderr.write('\n')
+  if (skipped.length > 0) {
+    console.warn(`  ${skipped.length} icons did not render: ${skipped.slice(0, 10).join(', ')}`)
+  }
   return {
     namesGz: gzipSync(names),
     hashesGz: gzipSync(hashes),

@@ -129,8 +129,11 @@ export function findMatchesByHash(
   index: IconIndex,
   options: HashMatchOptions = {}
 ): IconMatch[] {
+  if (hash.length !== HASH_BYTES) {
+    throw new Error(`Expected a ${HASH_BYTES}-byte hash, as indexes hold, got ${hash.length} bytes`)
+  }
   const { limit = 10, threshold = 0.8, prefixes, prefer } = options
-  const bits = hash.length * 8
+  const bits = HASH_BYTES * 8
   const prefixSet = prefixes?.length ? new Set(prefixes) : null
   const preferSet = prefer?.length ? new Set(prefer) : null
   const thresholdDist = Math.floor((1 - threshold) * bits)
@@ -138,7 +141,7 @@ export function findMatchesByHash(
   const found: { position: number; similarity: number }[] = []
   for (let i = 0; i < index.names.length; i++) {
     if (prefixSet && !prefixSet.has(prefixOf(index.names[i] ?? ''))) continue
-    const distance = hammingDistanceAt(hash, index.hashes, i * hash.length)
+    const distance = hammingDistanceAt(hash, index.hashes, i * HASH_BYTES)
     if (distance > thresholdDist) continue
     const similarity = 1 - distance / bits
     if (similarity >= threshold) found.push({ position: i, similarity })

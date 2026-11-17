@@ -66,6 +66,11 @@ describe('hash without Node', () => {
     ])
   })
 
+  test('refuses a query hash of another size than the index holds', () => {
+    const index = parseIndex('a:b', new Uint8Array(HASH_BYTES))
+    expect(() => findMatchesByHash(new Uint8Array(32), index)).toThrow('128-byte hash')
+  })
+
   test('refuses an index whose hashes do not fit its names, or hashed another way', () => {
     expect(() => parseIndex('a:b\nc:d', new Uint8Array(HASH_BYTES))).toThrow()
     expect(isCompatibleIndex({})).toBe(false)

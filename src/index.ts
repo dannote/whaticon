@@ -24,10 +24,8 @@ export {
   type IconMatch
 } from './hash.js'
 
-export interface MatchOptions extends HashMatchOptions {
-  /** Image size for comparison (default: 32) */
-  size?: number
-}
+/** Indexes hold hashes of `DEFAULT_SIZE`, so a query is always hashed at that size. */
+export type MatchOptions = HashMatchOptions
 
 /**
  * An icon drawn in a `width` by `height` box as darkness on white: how much of each pixel its
@@ -39,7 +37,8 @@ async function coverage(svg: string | Buffer, width: number, height: number): Pr
   const input = typeof svg === 'string' ? Buffer.from(svg) : svg
   const own = await sharp(input).metadata()
   const scale = Math.min(width / (own.width || width), height / (own.height || height))
-  return sharp(input, { density: 72 * scale })
+  // sharp takes 1 to 100000 dpi; an SVG too large to draw that small is drawn at 1 and resized.
+  return sharp(input, { density: Math.min(Math.max(72 * scale, 1), 100_000) })
     .ensureAlpha()
     .resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .extractChannel('alpha')
@@ -128,8 +127,7 @@ export async function findMatches(
   index: IconIndex,
   options: MatchOptions = {}
 ): Promise<IconMatch[]> {
-  const { size = DEFAULT_SIZE, ...matching } = options
-  return findMatchesByHash(await computeDHash(svg, size), index, matching)
+  return findMatchesByHash(await computeDHash(svg), index, options)
 }
 
 /** An icon to index: its SVG body and the viewBox it is drawn in, as Iconify's `iconToSVG` gives them. */
@@ -144,32 +142,35 @@ const CONCURRENCY = 32
 
 /**
  * Hash a set of icons for an index, each as `computeDHash` hashes a query. Icons that do not
- * render are left out. Returns names and hashes ready to be gzipped and saved.
+ * render are left out and listed in `skipped`. Returns names and hashes ready to be gzipped and
+ * saved.
  */
 export async function buildIndex(
   icons: IconInput[],
-  size = DEFAULT_SIZE,
   onProgress?: (current: number, total: number) => void
-): Promise<{ names: string; hashes: Buffer }> {
+): Promise<{ names: string; hashes: Buffer; skipped: string[] }> {
   const names: string[] = []
   const hashes: Buffer[] = []
+  const skipped: string[] = []
   for (let i = 0; i < icons.length; i += CONCURRENCY) {
     const batch = icons.slice(i, i + CONCURRENCY)
     const batchHashes = await Promise.all(
       batch.map(({ body, viewBox }) =>
         computeDHash(
-          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox.join(' ')}">${body}</svg>`,
-          size
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox.join(' ')}">${body}</svg>`
         ).catch(() => undefined)
       )
     )
     batch.forEach((icon, j) => {
       const hash = batchHashes[j]
-      if (!hash) return
-      names.push(icon.name)
-      hashes.push(hash)
+      if (hash) {
+        names.push(icon.name)
+        hashes.push(hash)
+      } else {
+        skipped.push(icon.name)
+      }
     })
     onProgress?.(Math.min(i + CONCURRENCY, icons.length), icons.length)
   }
-  return { names: names.join('\n'), hashes: Buffer.concat(hashes) }
+  return { names: names.join('\n'), hashes: Buffer.concat(hashes), skipped }
 }

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import {
+  buildIndex,
   computeDHash,
   fetchIconSvg,
   findMatches,
@@ -41,6 +42,11 @@ describe('svgToPixels', () => {
 })
 
 describe('computeDHash', () => {
+  test('hashes an SVG far larger than the hash as it hashes a small one', async () => {
+    const large = SIMPLE_RECT.replace('<svg ', '<svg width="4000" height="4000" ')
+    expect(hammingDistance(await computeDHash(large), await computeDHash(SIMPLE_RECT))).toBe(0)
+  })
+
   test('returns 128-byte buffer', async () => {
     const hash = await computeDHash(SIMPLE_RECT)
     expect(hash.length).toBe(128) // 1024 bits = 128 bytes
@@ -94,6 +100,19 @@ describe('hashing as the index hashes', () => {
     expect(white).not.toBe(black)
     expect(hammingDistance(await computeDHash(white), await computeDHash(black))).toBe(0)
     expect(hammingDistance(await computeDHash(brand), await computeDHash(black))).toBe(0)
+  })
+})
+
+describe('buildIndex', () => {
+  test('leaves out and reports the icons that do not render', async () => {
+    const viewBox = [0, 0, 24, 24] as const
+    const { names, hashes, skipped } = await buildIndex([
+      { name: 'my:square', body: '<rect x="4" y="4" width="16" height="16"/>', viewBox },
+      { name: 'my:broken', body: '<rect', viewBox }
+    ])
+    expect(names).toBe('my:square')
+    expect(hashes).toHaveLength(128)
+    expect(skipped).toEqual(['my:broken'])
   })
 })
 
