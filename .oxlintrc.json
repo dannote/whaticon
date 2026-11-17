@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "promise", "node"],
+  "env": { "node": true, "es2024": true },
+  "rules": {
+    "no-unused-vars": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/consistent-return": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unnecessary-type-parameters": "error",
+    "typescript/no-unnecessary-boolean-literal-compare": "error",
+    "typescript/no-unnecessary-template-expression": "error",
+    "typescript/no-unnecessary-type-arguments": "error",
+    "typescript/prefer-optional-chain": "error",
+    "typescript/prefer-for-of": "error",
+    "import/no-cycle": "error",
+    "import/no-self-import": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "unicorn/no-instanceof-array": "error",
+    "unicorn/no-typeof-undefined": "error",
+    "unicorn/no-nested-ternary": "error",
+    "unicorn/no-unnecessary-await": "error",
+    "unicorn/prefer-string-starts-ends-with": "error",
+    "unicorn/prefer-node-protocol": "error"
+  }
+}

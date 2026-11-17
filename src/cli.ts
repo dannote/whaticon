@@ -1,10 +1,23 @@
 #!/usr/bin/env node
 import { defineCommand, runMain } from 'citty'
-import { existsSync, readFileSync } from 'fs'
-import { resolve } from 'path'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import * as v from 'valibot'
 
-import { ensureIndex, getCacheDir, isIndexDownloaded, type IndexVariant } from './download.js'
+import { ensureIndex, isIndexDownloaded } from './download.js'
 import { fetchIconSvg, findMatches, loadIndex } from './index.js'
+
+const VariantSchema = v.picklist(['core', 'popular', 'full'])
+const LimitSchema = v.pipe(v.string(), v.toNumber(), v.integer(), v.minValue(1))
+const ThresholdSchema = v.pipe(v.string(), v.toNumber(), v.minValue(0), v.maxValue(1))
+
+/** An option's value, or exit with what it should have been. */
+function option<T>(schema: v.GenericSchema<string, T>, value: string, message: string): T {
+  const result = v.safeParse(schema, value)
+  if (result.success) return result.output
+  console.error(message)
+  return process.exit(1)
+}
 
 const main = defineCommand({
   meta: {
@@ -83,12 +96,17 @@ const main = defineCommand({
       process.exit(1)
     }
 
-    // Determine index variant
-    const variant = (args.index as IndexVariant) || 'popular'
-    if (!['core', 'popular', 'full'].includes(variant)) {
-      console.error(`Invalid index variant: ${variant}. Use: core, popular, full`)
-      process.exit(1)
-    }
+    const variant = option(
+      VariantSchema,
+      args.index || 'popular',
+      `Invalid index variant: ${args.index}. Use: core, popular, full`
+    )
+    const limit = option(LimitSchema, args.limit, `Invalid limit: ${args.limit}`)
+    const threshold = option(
+      ThresholdSchema,
+      args.threshold,
+      `Invalid threshold: ${args.threshold}`
+    )
 
     // Try bundled index first, then download
     let namesGz: Buffer
@@ -118,8 +136,8 @@ const main = defineCommand({
     const prefer = args.prefer?.split(',').map((p) => p.trim())
 
     const matches = await findMatches(svg, index, {
-      limit: parseInt(args.limit, 10),
-      threshold: parseFloat(args.threshold),
+      limit,
+      threshold,
       prefixes,
       prefer
     })
@@ -139,4 +157,4 @@ const main = defineCommand({
   }
 })
 
-runMain(main)
+await runMain(main)

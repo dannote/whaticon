@@ -55,7 +55,7 @@ npx whaticon icon.svg --json
 | `popular` | ~57k | ~1.8 MB | 12 popular sets (default) |
 | `full` | ~200k+ | ~6 MB | All Iconify sets |
 
-The `popular` index is bundled with the package. Other variants are downloaded on first use to `~/.cache/whaticon/`.
+The `popular` index is bundled with the package. Other variants are downloaded on first use to `$XDG_CACHE_HOME/whaticon/` (`~/.cache/whaticon/` by default), and downloaded again once a whaticon update hashes icons another way.
 
 ## API Usage
 
@@ -101,15 +101,31 @@ Ensure index is downloaded, returns gzipped buffers.
 #### `isIndexDownloaded(variant)`
 Check if index variant is cached locally.
 
+### Without Node
+
+`whaticon/hash` has no Node or native dependencies, for hosts that rasterize SVG themselves, such as a browser canvas or an app's own renderer. Rasterize the icon as the index was built: drawn at the largest size that fits a 33 by 32 box, centered, on transparency, then one byte per pixel of `255 - alpha`, so the shapes' coverage counts and their color does not.
+
+```ts
+import { dHashFromPixels, findMatchesByHash, parseIndex } from 'whaticon/hash'
+
+// names.txt and hashes.bin, ungzipped, for example with DecompressionStream
+const index = parseIndex(namesText, hashesBytes)
+const matches = findMatchesByHash(dHashFromPixels(grayscalePixels), index, { threshold: 0.9 })
+```
+
+Icons whose hashes are identical, as sets that copy another's are, come back as one match with the others in `siblings`, led by a `prefer`red set's icon. An index's `metadata.json` records the `scheme` it was hashed with; `isCompatibleIndex(metadata)` tells whether this version hashes the same way.
+
 ## Building Custom Index
 
 ```typescript
+import { writeFileSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import { buildIndex } from 'whaticon'
-import { gzipSync, writeFileSync } from 'fs'
 
+// The body and viewBox of each icon, as @iconify/utils' iconToSVG returns them
 const icons = [
-  { name: 'my:icon1', svg: '<svg>...</svg>' },
-  { name: 'my:icon2', svg: '<svg>...</svg>' },
+  { name: 'my:icon1', body: '<path d="..."/>', viewBox: [0, 0, 24, 24] },
+  { name: 'my:icon2', body: '<path d="..."/>', viewBox: [0, 0, 512, 448] },
 ]
 
 const { names, hashes } = await buildIndex(icons)
@@ -120,14 +136,14 @@ writeFileSync('hashes.bin.gz', gzipSync(hashes))
 
 ## How It Works
 
-1. **Render**: SVG is rendered to a 33×32 grayscale image using [sharp](https://sharp.pixelplumbing.com/)
+1. **Render**: SVG is rendered with [sharp](https://sharp.pixelplumbing.com/) to a 33×32 image of how much its shapes cover each pixel, whatever their color, fitted and centered
 2. **Hash**: A [difference hash (dHash)](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html) is computed — comparing adjacent pixels to produce 1024 bits
 3. **Match**: Hamming distance between hashes determines similarity
 
 ### Performance
 
-- **Index build**: ~10,000 icons/sec (sprite sheet batching)
-- **Search**: ~5ms per query (32-bit popcount optimization)
+- **Index build**: ~700 icons/sec, each hashed exactly as a query is
+- **Search**: ~15ms per query over the popular index (32-bit popcount)
 - **Index size**: ~30 bytes per icon (gzip compressed)
 
 ## Index Format
