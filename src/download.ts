@@ -6,7 +6,7 @@ import * as v from 'valibot'
 
 import { HASH_SCHEME, isCompatibleIndex } from './hash.js'
 
-const GITHUB_REPO = 'dannote/whaticon'
+const GITHUB_REPO = 'open-pencil/whaticon'
 
 export type IndexVariant = 'core' | 'popular' | 'full'
 

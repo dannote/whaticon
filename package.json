@@ -58,7 +58,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dannote/whaticon.git"
+    "url": "git+https://github.com/open-pencil/whaticon.git"
   },
   "dependencies": {
     "citty": "^0.2.2",
