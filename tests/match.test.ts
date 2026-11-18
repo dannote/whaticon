@@ -29,24 +29,40 @@ const draw: MatcherServices['draw'] = async (svg, width, height) => {
 
 const NAMES = ['lucide:house', 'lucide:search']
 
-/** An index of `NAMES`, hashed as the matcher hashes what it is given. */
-async function testIndex() {
+const box = (body: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">${body}</svg>`
+
+/** Icons the tests draw beyond installed ones. */
+const DRAWN: Record<string, string> = {
+  // The same right edge, so the same difference hash: it records only edges darkening rightward.
+  'test:wide': box('<rect x="2" y="6" width="20" height="12"/>'),
+  'test:narrow': box('<rect x="14" y="6" width="8" height="12"/>'),
+  'test:house-dot': iconSvg('lucide:house').replace(
+    '</svg>',
+    '<circle cx="12" cy="3" r="1"/></svg>'
+  )
+}
+
+const svgOf = (name: string) => DRAWN[name] ?? iconSvg(name)
+
+/** An index of `names`, hashed as the matcher hashes what it is given. */
+async function indexOf(names: readonly string[]) {
   const hashes = await Promise.all(
-    NAMES.map(async (name) => {
-      const image = await draw(iconSvg(name), DEFAULT_SIZE + 1, DEFAULT_SIZE)
+    names.map(async (name) => {
+      const image = await draw(svgOf(name), DEFAULT_SIZE + 1, DEFAULT_SIZE)
       if (!image) throw new Error(`${name} did not draw`)
       return dHashFromPixels(coverageFromRGBA(image, DEFAULT_SIZE + 1, DEFAULT_SIZE))
     })
   )
   const bytes = new Uint8Array(hashes.length * 128)
   hashes.forEach((hash, i) => bytes.set(hash, i * 128))
-  return parseIndex(NAMES.join('\n'), bytes)
+  return parseIndex(names.join('\n'), bytes)
 }
 
+const testIndex = () => indexOf(NAMES)
+
 function testIcons() {
-  return mock(
-    async (names: readonly string[]) => new Map(names.map((name) => [name, iconSvg(name)]))
-  )
+  return mock(async (names: readonly string[]) => new Map(names.map((name) => [name, svgOf(name)])))
 }
 
 afterEach(() => {
@@ -124,6 +140,46 @@ describe('naming icons by how they draw', () => {
     expect(await match([house])).toEqual([null])
     failing = false
     expect(await match([house])).toEqual(['lucide:house'])
+  })
+
+  test('compares icons whose hashes are identical but which draw apart', async () => {
+    const match = createMatcher({
+      index: () => indexOf(['test:wide', 'test:narrow']),
+      icons: testIcons(),
+      draw
+    })
+
+    expect(await match([svgOf('test:narrow')])).toEqual(['test:narrow'])
+  })
+
+  test('answers from some of its icons for one call, and compares again on the next', async () => {
+    const icons = testIcons()
+    icons.mockImplementationOnce(async () => new Map([['lucide:house', iconSvg('lucide:house')]]))
+    const match = createMatcher({
+      index: () => indexOf(['lucide:house', 'test:house-dot']),
+      icons,
+      draw
+    })
+    const houseDot = svgOf('test:house-dot')
+
+    expect(await match([houseDot])).toEqual(['lucide:house'])
+    expect(await match([houseDot])).toEqual(['test:house-dot'])
+  })
+
+  test('reports an index loader that throws, and loads again', async () => {
+    const onError = mock()
+    let throwing = true
+    const index = () => {
+      if (throwing) throw new Error('no fetch')
+      return testIndex()
+    }
+    const match = createMatcher({ index, icons: testIcons(), draw, onError })
+    const house = iconSvg('lucide:house')
+
+    expect(await match([house])).toEqual([null])
+    throwing = false
+    expect(await match([house])).toEqual(['lucide:house'])
+    expect(onError).toHaveBeenCalledTimes(1)
   })
 
   test('does not keep a miss from comparing with only some of its icons', async () => {

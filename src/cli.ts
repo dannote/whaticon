@@ -11,7 +11,10 @@ import {
   compareMatches,
   fetchIconSvg,
   findMatches,
-  loadIndex
+  loadIndex,
+  type HashMatchOptions,
+  type IconIndex,
+  type IconMatch
 } from './index.js'
 
 /** The hash similarity results start at without --compare. */
@@ -20,6 +23,29 @@ const DEFAULT_THRESHOLD = 0.8
 const VariantSchema = v.picklist(['core', 'popular', 'full'])
 const LimitSchema = v.pipe(v.string(), v.toNumber(), v.integer(), v.minValue(1))
 const ThresholdSchema = v.pipe(v.string(), v.toNumber(), v.minValue(0), v.maxValue(1))
+
+/**
+ * The closest hashes compared by drawing, those alike enough first. Exits when none could be
+ * compared, as offline, which is not the same answer as none being alike enough.
+ */
+async function compared(
+  svg: string,
+  index: IconIndex,
+  options: Required<Pick<HashMatchOptions, 'limit' | 'threshold'>> & HashMatchOptions
+): Promise<IconMatch[]> {
+  const { limit, threshold, ...filters } = options
+  const shortlist = await findMatches(svg, index, {
+    ...filters,
+    limit: Math.max(SHORTLIST.limit, limit),
+    threshold: SHORTLIST.threshold
+  })
+  const scored = await compareMatches(svg, shortlist)
+  if (shortlist.length > 0 && scored.length === 0) {
+    console.error('Could not load the icons to compare with from the Iconify API')
+    process.exit(1)
+  }
+  return scored.filter((match) => match.similarity >= threshold).slice(0, limit)
+}
 
 /** An option's value, or exit with what it should have been. */
 function option<T>(schema: v.GenericSchema<string, T>, value: string, message: string): T {
@@ -151,14 +177,7 @@ const main = defineCommand({
     const prefer = args.prefer?.split(',').map((p) => p.trim())
 
     const matches = args.compare
-      ? (
-          await compareMatches(
-            svg,
-            await findMatches(svg, index, { ...SHORTLIST, prefixes, prefer })
-          )
-        )
-          .filter((match) => match.similarity >= threshold)
-          .slice(0, limit)
+      ? await compared(svg, index, { limit, threshold, prefixes, prefer })
       : await findMatches(svg, index, { limit, threshold, prefixes, prefer })
 
     if (args.json) {

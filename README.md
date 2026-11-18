@@ -145,7 +145,7 @@ const match = createMatcher({
 const names = await match([svgA, svgB]) // ['lucide:house', null]
 ```
 
-SVGs passed together load the icons they compare with at once, and answers are kept, so a page that repeats an icon compares it once. What fails to load or draw leaves its SVG unnamed and is tried again by the next call. In Node, `compareMatches(svg, matches)` scores `findMatches` results the same way with sharp, as the CLI's `--compare` does.
+SVGs passed together load the icons they compare with at once, and answers are kept, so a page that repeats an icon compares it once. Icons with identical hashes are compared too, since a difference hash records only the edges that darken to the right. What fails to load or draw leaves its SVG unnamed and is tried again by the next call, and an answer from only some of its icons is not kept. In Node, `compareMatches(svg, matches)` scores `findMatches` results the same way with sharp, as the CLI's `--compare` does.
 
 ## Building Custom Index
 

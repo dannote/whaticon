@@ -23,6 +23,9 @@ export interface RGBAImage {
 /** The icons the hash shortlists for drawing. */
 export const SHORTLIST = { limit: 10, threshold: 0.6 }
 
+/** How many of a shortlisted icon's same-hash siblings are drawn and compared beside it. */
+export const SIBLINGS_COMPARED = 3
+
 /** The side of the square an SVG and the icons it is compared with are drawn in. */
 export const COMPARED_SIZE = 64
 
@@ -133,8 +136,8 @@ interface Answer {
  * Names the icons SVG draws: the hash of the SVG as the host draws it shortlists icons, and the
  * one that draws most alike, if alike enough, names it. Answers, drawings, and the index are kept,
  * so SVG repeated across calls is compared once. What could not be loaded or drawn leaves its SVG
- * unnamed and is tried again by the next call, and a miss from comparing with only some of its
- * icons is not kept.
+ * unnamed and is tried again by the next call, and an answer from comparing with only some of its
+ * icons is used for that call but not kept.
  */
 export function createMatcher(services: MatcherServices): Matcher {
   let index: Promise<IconIndex> | undefined
@@ -149,11 +152,13 @@ export function createMatcher(services: MatcherServices): Matcher {
   }
 
   async function loadIndex(): Promise<IconIndex | null> {
-    index ??= services.index()
+    // Inside the async call, so a loader that throws rejects this promise like one that rejects.
+    const loading = (index ??= (async () => services.index())())
     try {
-      return await index
+      return await loading
     } catch (error) {
-      index = undefined
+      // Only this load is forgotten; a retry already started stays.
+      if (index === loading) index = undefined
       report('the index did not load', error)
       return null
     }
@@ -178,8 +183,12 @@ export function createMatcher(services: MatcherServices): Matcher {
   async function shortlist(svg: string, icons: IconIndex): Promise<Shortlisted | null | undefined> {
     const grid = await coverage(svg, DEFAULT_SIZE + 1, DEFAULT_SIZE)
     if (!grid) return grid
-    // Icons with identical hashes are copies; the first stands for them all.
-    const names = findMatchesByHash(dHashFromPixels(grid), icons, SHORTLIST).map((m) => m.name)
+    // Icons with identical hashes can still draw apart: a difference hash records only the edges
+    // that darken to the right, so each is compared, up to SIBLINGS_COMPARED.
+    const names = findMatchesByHash(dHashFromPixels(grid), icons, SHORTLIST).flatMap((match) => [
+      match.name,
+      ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)
+    ])
     if (names.length === 0) return null
     const drawing = await coverage(svg, COMPARED_SIZE, COMPARED_SIZE)
     return drawing && { drawing, names }
@@ -242,10 +251,15 @@ export function createMatcher(services: MatcherServices): Matcher {
       ])
       if (candidates) {
         const results = await Promise.all(shortlists.map((listed) => answer(listed, candidates)))
+        // Only a comparison with every icon is kept; a partial one names its SVG for this call
+        // and is compared again by the next, when a better icon may have loaded.
+        const partial = new Map<string, string | null>()
         unknown.forEach((svg, i) => {
           const { name, complete } = results[i] ?? { name: null, complete: false }
-          if (name || complete) answers.set(svg, name)
+          if (complete) answers.set(svg, name)
+          else partial.set(svg, name)
         })
+        return svgs.map((svg) => answers.get(svg) ?? partial.get(svg) ?? null)
       }
     }
     return svgs.map((svg) => answers.get(svg) ?? null)

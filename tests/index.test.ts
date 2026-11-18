@@ -135,6 +135,29 @@ describe('compareMatches', () => {
     expect(compared[0]?.similarity).toBeGreaterThanOrEqual(NAMED_AT)
     expect(compared[1]?.similarity).toBeLessThan(NAMED_AT)
   })
+
+  test('names a match after whichever of its same-hash siblings draws most alike', async () => {
+    const [compared] = await compareMatches(
+      iconSvg('lucide:search'),
+      [{ name: 'lucide:house', similarity: 0.9, siblings: ['lucide:search'] }],
+      async (name) => iconSvg(name)
+    )
+
+    expect(compared).toMatchObject({ name: 'lucide:search', siblings: ['lucide:house'] })
+  })
+
+  test('leaves out icons that do not load or draw, and keeps the rest', async () => {
+    const compared = await compareMatches(
+      iconSvg('lucide:house'),
+      [
+        { name: 'lucide:house', similarity: 0.9 },
+        { name: 'broken:icon', similarity: 0.8 }
+      ],
+      async (name) => (name === 'broken:icon' ? 'not svg' : iconSvg(name))
+    )
+
+    expect(compared.map((match) => match.name)).toEqual(['lucide:house'])
+  })
 })
 
 describe('hammingDistance', () => {

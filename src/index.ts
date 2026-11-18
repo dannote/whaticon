@@ -10,7 +10,7 @@ import {
   type IconIndex,
   type IconMatch
 } from './hash.js'
-import { COMPARED_SIZE, coverageSimilarity } from './match.js'
+import { COMPARED_SIZE, SIBLINGS_COMPARED, coverageSimilarity } from './match.js'
 
 import type { Sharp, SharpOptions } from 'sharp'
 
@@ -30,6 +30,7 @@ export {
   COMPARED_SIZE,
   NAMED_AT,
   SHORTLIST,
+  SIBLINGS_COMPARED,
   coverageFromRGBA,
   coverageSimilarity,
   createMatcher,
@@ -152,8 +153,10 @@ export async function fetchIconSvg(name: string): Promise<string> {
 /**
  * `matches` scored by how alike each icon draws to `svg`, most alike first, as `whaticon/match`
  * names icons: both drawn with sharp in a `COMPARED_SIZE` square and compared by
- * `coverageSimilarity`, whose `NAMED_AT` tells an icon from a lookalike. `iconSvg` gives each
- * icon's SVG, by default from the Iconify API; icons it fails for are left out.
+ * `coverageSimilarity`, whose `NAMED_AT` tells an icon from a lookalike. A match whose same-hash
+ * siblings draw differently takes the name of whichever of them draws most alike. `iconSvg` gives
+ * each icon's SVG, by default from the Iconify API; icons it fails for, or that do not draw, are
+ * left out.
  */
 export async function compareMatches(
   svg: string | Buffer,
@@ -161,15 +164,31 @@ export async function compareMatches(
   iconSvg: (name: string) => Promise<string> = fetchIconSvg
 ): Promise<IconMatch[]> {
   const own = await svgToPixels(svg, COMPARED_SIZE)
+  const similarity = async (name: string): Promise<number | null> => {
+    try {
+      return coverageSimilarity(own, await svgToPixels(await iconSvg(name), COMPARED_SIZE))
+    } catch {
+      return null
+    }
+  }
   const scored = await Promise.all(
     matches.map(async (match) => {
-      const icon = await iconSvg(match.name).catch(() => null)
-      if (!icon) return null
-      const similarity = coverageSimilarity(own, await svgToPixels(icon, COMPARED_SIZE))
-      return { ...match, similarity }
+      const names = [match.name, ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)]
+      const scores = await Promise.all(names.map(similarity))
+      let best: IconMatch | null = null
+      for (const [i, name] of names.entries()) {
+        const score = scores[i]
+        if (score == null || (best && best.similarity >= score)) continue
+        const siblings = names.filter((other) => other !== name)
+        best =
+          siblings.length > 0 ? { name, similarity: score, siblings } : { name, similarity: score }
+      }
+      return best
     })
   )
-  return scored.filter((match) => match !== null).sort((a, b) => b.similarity - a.similarity)
+  return scored
+    .filter((match): match is IconMatch => match !== null)
+    .sort((a, b) => b.similarity - a.similarity)
 }
 
 /**
