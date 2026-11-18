@@ -19,6 +19,11 @@
       "require": "./dist/hash.js",
       "types": "./dist/hash.d.ts"
     },
+    "./match": {
+      "import": "./dist/match.js",
+      "require": "./dist/match.js",
+      "types": "./dist/match.d.ts"
+    },
     "./download": {
       "import": "./dist/download.js",
       "require": "./dist/download.js",
@@ -41,7 +46,8 @@
     "format": "oxfmt src scripts tests",
     "format:check": "oxfmt --check src scripts tests",
     "check": "bun run typecheck && bun run lint && bun run format:check",
-    "prepublishOnly": "bun run build"
+    "prepublishOnly": "bun run build",
+    "version": "bun run scripts/release/version.ts && git add src/version.ts"
   },
   "keywords": [
     "icon",

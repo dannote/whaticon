@@ -38,6 +38,9 @@ npx whaticon icon.svg --threshold 0.9 --limit 5
 npx whaticon icon.svg --index full    # 200k+ icons
 npx whaticon icon.svg --index core    # ~10k icons (faster)
 
+# Compare the closest icons by drawing them, to tell an icon from a lookalike
+npx whaticon icon.svg --compare
+
 # JSON output
 npx whaticon icon.svg --json
 ```
@@ -47,7 +50,8 @@ npx whaticon icon.svg --json
 | Option | Description |
 |--------|-------------|
 | `-n, --limit <n>` | Maximum results (default: 10) |
-| `-t, --threshold <n>` | Minimum similarity 0-1 (default: 0.8) |
+| `-t, --threshold <n>` | Minimum similarity 0-1 (default: 0.8, or 0.9 with `--compare`) |
+| `-c, --compare` | Compare the closest hashes by drawing them, fetched from the Iconify API |
 | `-p, --prefix <sets>` | Limit to icon sets (comma-separated) |
 | `--prefer <sets>` | Prefer these icon sets (comma-separated) |
 | `-i, --index <variant>` | Index: `core`, `popular` (default), `full` |
@@ -121,6 +125,28 @@ const matches = findMatchesByHash(dHashFromPixels(grayscalePixels), index, { thr
 
 Icons whose hashes are identical, as sets that copy another's are, come back as one match with the others in `siblings`, led by a `prefer`red set's icon. An index's `metadata.json` records the `scheme` it was hashed with; `isCompatibleIndex(metadata)` tells whether this version hashes the same way.
 
+### Naming icons by how they draw
+
+A hash finds the right icon among its closest few, but its similarity cannot tell an icon from a shape that merely resembles one: a circle with a square at its corner hashes 97.6% like `lucide:search`. `whaticon/match`, also free of Node and native dependencies, names icons as a host draws them: the hash shortlists icons, the host draws the SVG and each shortlisted icon, and the one that draws most alike names it when their drawings differ by less than a tenth of their ink (`NAMED_AT`).
+
+```ts
+import { createMatcher, fetchIndex } from 'whaticon/match'
+
+const match = createMatcher({
+  // This version's popular index, from jsDelivr
+  index: () => fetchIndex(),
+  // The SVG drawn at the largest size that fits the box, as RGBA on transparency
+  draw: async (svg, width, height) => drawWithYourRenderer(svg, width, height),
+  // Each named icon's SVG, such as from the Iconify API
+  icons: async (names) => loadIconSVGs(names),
+  onError: (reason, error) => console.warn(`Icons are not named: ${reason}`, error)
+})
+
+const names = await match([svgA, svgB]) // ['lucide:house', null]
+```
+
+SVGs passed together load the icons they compare with at once, and answers are kept, so a page that repeats an icon compares it once. Icons with identical hashes are compared too, since a difference hash records only the edges that darken to the right. What fails to load or draw leaves its SVG unnamed and is tried again by the next call, and an answer from only some of its icons is not kept. In Node, `compareMatches(svg, matches)` scores `findMatches` results the same way with sharp, as the CLI's `--compare` does.
+
 ## Building Custom Index
 
 ```typescript
@@ -145,6 +171,7 @@ writeFileSync('hashes.bin.gz', gzipSync(hashes))
 1. **Render**: SVG is rendered with [sharp](https://sharp.pixelplumbing.com/) to a 33×32 image of how much its shapes cover each pixel, whatever their color, fitted and centered
 2. **Hash**: A [difference hash (dHash)](https://www.hackerfactor.com/blog/index.php?/archives/529-Kind-of-Like-That.html) is computed — comparing adjacent pixels to produce 1024 bits
 3. **Match**: Hamming distance between hashes determines similarity
+4. **Compare** (`--compare`, `whaticon/match`): the closest icons are drawn and compared with the SVG by ink, which tells an icon from a lookalike
 
 ### Performance
 

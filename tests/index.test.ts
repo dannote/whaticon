@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import {
+  NAMED_AT,
   buildIndex,
+  compareMatches,
   computeDHash,
   fetchIconSvg,
   findMatches,
@@ -113,6 +115,58 @@ describe('buildIndex', () => {
     expect(names).toBe('my:square')
     expect(hashes).toHaveLength(128)
     expect(skipped).toEqual(['my:broken'])
+  })
+})
+
+describe('compareMatches', () => {
+  test('scores matches by how alike they draw, so a lookalike falls below NAMED_AT', async () => {
+    const house = iconSvg('lucide:house')
+    const compared = await compareMatches(
+      house,
+      [
+        { name: 'lucide:search', similarity: 0.9 },
+        { name: 'lucide:house', similarity: 0.8 },
+        { name: 'lucide:missing', similarity: 0.7 }
+      ],
+      async (name) => iconSvg(name)
+    )
+
+    expect(compared.map((match) => match.name)).toEqual(['lucide:house', 'lucide:search'])
+    expect(compared[0]?.similarity).toBeGreaterThanOrEqual(NAMED_AT)
+    expect(compared[1]?.similarity).toBeLessThan(NAMED_AT)
+  })
+
+  test('names a match after whichever of its same-hash siblings draws most alike', async () => {
+    const [compared] = await compareMatches(
+      iconSvg('lucide:search'),
+      [{ name: 'lucide:house', similarity: 0.9, siblings: ['lucide:search'] }],
+      async (name) => iconSvg(name)
+    )
+
+    expect(compared).toMatchObject({ name: 'lucide:search', siblings: ['lucide:house'] })
+  })
+
+  test('leaves a sibling that does not draw out of the match it names', async () => {
+    const [compared] = await compareMatches(
+      iconSvg('lucide:search'),
+      [{ name: 'broken:icon', similarity: 0.9, siblings: ['lucide:search'] }],
+      async (name) => (name === 'broken:icon' ? 'not svg' : iconSvg(name))
+    )
+
+    expect(compared).toEqual({ name: 'lucide:search', similarity: expect.any(Number) })
+  })
+
+  test('leaves out icons that do not load or draw, and keeps the rest', async () => {
+    const compared = await compareMatches(
+      iconSvg('lucide:house'),
+      [
+        { name: 'lucide:house', similarity: 0.9 },
+        { name: 'broken:icon', similarity: 0.8 }
+      ],
+      async (name) => (name === 'broken:icon' ? 'not svg' : iconSvg(name))
+    )
+
+    expect(compared.map((match) => match.name)).toEqual(['lucide:house'])
   })
 })
 

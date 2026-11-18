@@ -10,6 +10,7 @@ import {
   type IconIndex,
   type IconMatch
 } from './hash.js'
+import { COMPARED_SIZE, coverageSimilarity } from './match.js'
 
 import type { Sharp, SharpOptions } from 'sharp'
 
@@ -24,6 +25,19 @@ export {
   type IconIndex,
   type IconMatch
 } from './hash.js'
+
+export {
+  COMPARED_SIZE,
+  NAMED_AT,
+  SHORTLIST,
+  coverageFromRGBA,
+  coverageSimilarity,
+  createMatcher,
+  fetchIndex,
+  type Matcher,
+  type MatcherServices,
+  type RGBAImage
+} from './match.js'
 
 /** Indexes hold hashes of `DEFAULT_SIZE`, so a query is always hashed at that size. */
 export type MatchOptions = HashMatchOptions
@@ -133,6 +147,52 @@ export async function fetchIconSvg(name: string): Promise<string> {
   }
 
   return res.text()
+}
+
+/** Icons `compareMatches` loads and draws at once. */
+const COMPARE_CONCURRENCY = 8
+
+/**
+ * `matches` scored by how alike each icon draws to `svg`, most alike first, as `whaticon/match`
+ * names icons: both drawn with sharp in a `COMPARED_SIZE` square and compared by
+ * `coverageSimilarity`, whose `NAMED_AT` tells an icon from a lookalike. A match whose same-hash
+ * siblings draw differently takes the name of whichever of them draws most alike. `iconSvg` gives
+ * each icon's SVG, by default from the Iconify API; icons it fails for, or that do not draw, are
+ * left out.
+ */
+export async function compareMatches(
+  svg: string | Buffer,
+  matches: readonly IconMatch[],
+  iconSvg: (name: string) => Promise<string> = fetchIconSvg
+): Promise<IconMatch[]> {
+  const own = await svgToPixels(svg, COMPARED_SIZE)
+  const groups = matches.map((match) => [match.name, ...(match.siblings ?? [])])
+  // Loaded and drawn a few at a time, however wide the shortlist.
+  const names = groups.flat()
+  const scores = new Map<string, number>()
+  for (let i = 0; i < names.length; i += COMPARE_CONCURRENCY) {
+    await Promise.all(
+      names.slice(i, i + COMPARE_CONCURRENCY).map(async (name) => {
+        try {
+          const drawn = await svgToPixels(await iconSvg(name), COMPARED_SIZE)
+          scores.set(name, coverageSimilarity(own, drawn))
+        } catch {
+          // An icon that does not load or draw is left out.
+        }
+      })
+    )
+  }
+  const scored = groups.map((group): IconMatch | null => {
+    const compared = group.filter((name) => scores.has(name))
+    const [name] = compared.sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
+    if (!name) return null
+    const siblings = compared.filter((other) => other !== name)
+    const similarity = scores.get(name) ?? 0
+    return siblings.length > 0 ? { name, similarity, siblings } : { name, similarity }
+  })
+  return scored
+    .filter((match): match is IconMatch => match !== null)
+    .sort((a, b) => b.similarity - a.similarity)
 }
 
 /**
