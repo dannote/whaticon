@@ -23,9 +23,6 @@ export interface RGBAImage {
 /** The icons the hash shortlists for drawing. */
 export const SHORTLIST = { limit: 10, threshold: 0.6 }
 
-/** How many of a shortlisted icon's same-hash siblings are drawn and compared beside it. */
-export const SIBLINGS_COMPARED = 3
-
 /** The side of the square an SVG and the icons it is compared with are drawn in. */
 export const COMPARED_SIZE = 64
 
@@ -188,10 +185,11 @@ export function createMatcher(services: MatcherServices): Matcher {
     const grid = await coverage(svg, DEFAULT_SIZE + 1, DEFAULT_SIZE)
     if (!grid) return grid
     // Icons with identical hashes can still draw apart: a difference hash records only the edges
-    // that darken to the right, so each is compared, up to SIBLINGS_COMPARED.
+    // that darken to the right, such as a set's battery levels, so every one is compared. A
+    // group holds at most 10 icons in the popular index.
     const names = findMatchesByHash(dHashFromPixels(grid), icons, SHORTLIST).flatMap((match) => [
       match.name,
-      ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)
+      ...(match.siblings ?? [])
     ])
     if (names.length === 0) return null
     const drawing = await coverage(svg, COMPARED_SIZE, COMPARED_SIZE)

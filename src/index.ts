@@ -10,7 +10,7 @@ import {
   type IconIndex,
   type IconMatch
 } from './hash.js'
-import { COMPARED_SIZE, SIBLINGS_COMPARED, coverageSimilarity } from './match.js'
+import { COMPARED_SIZE, coverageSimilarity } from './match.js'
 
 import type { Sharp, SharpOptions } from 'sharp'
 
@@ -30,7 +30,6 @@ export {
   COMPARED_SIZE,
   NAMED_AT,
   SHORTLIST,
-  SIBLINGS_COMPARED,
   coverageFromRGBA,
   coverageSimilarity,
   createMatcher,
@@ -167,10 +166,7 @@ export async function compareMatches(
   iconSvg: (name: string) => Promise<string> = fetchIconSvg
 ): Promise<IconMatch[]> {
   const own = await svgToPixels(svg, COMPARED_SIZE)
-  const groups = matches.map((match) => [
-    match.name,
-    ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)
-  ])
+  const groups = matches.map((match) => [match.name, ...(match.siblings ?? [])])
   // Loaded and drawn a few at a time, however wide the shortlist.
   const names = groups.flat()
   const scores = new Map<string, number>()

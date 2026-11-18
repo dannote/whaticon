@@ -37,6 +37,9 @@ const DRAWN: Record<string, string> = {
   // The same right edge, so the same difference hash: it records only edges darkening rightward.
   'test:wide': box('<rect x="2" y="6" width="20" height="12"/>'),
   'test:narrow': box('<rect x="14" y="6" width="8" height="12"/>'),
+  'test:w4': box('<rect x="18" y="6" width="4" height="12"/>'),
+  'test:w12': box('<rect x="10" y="6" width="12" height="12"/>'),
+  'test:w16': box('<rect x="6" y="6" width="16" height="12"/>'),
   'test:house-dot': iconSvg('lucide:house').replace(
     '</svg>',
     '<circle cx="12" cy="3" r="1"/></svg>'
@@ -150,6 +153,15 @@ describe('naming icons by how they draw', () => {
     })
 
     expect(await match([svgOf('test:narrow')])).toEqual(['test:narrow'])
+  })
+
+  test('compares every icon in a group of identical hashes, however far down its own is', async () => {
+    const group = ['test:wide', 'test:w16', 'test:w12', 'test:w4', 'test:narrow']
+    const icons = testIcons()
+    const match = createMatcher({ index: () => indexOf(group), icons, draw })
+
+    expect(await match([svgOf('test:narrow')])).toEqual(['test:narrow'])
+    expect(icons.mock.calls[0]?.[0]).toEqual(group)
   })
 
   test('answers from some of its icons for one call, and compares again on the next', async () => {
