@@ -10,6 +10,7 @@ import {
   type IconIndex,
   type IconMatch
 } from './hash.js'
+import { COMPARED_SIZE, coverageSimilarity } from './match.js'
 
 import type { Sharp, SharpOptions } from 'sharp'
 
@@ -24,6 +25,19 @@ export {
   type IconIndex,
   type IconMatch
 } from './hash.js'
+
+export {
+  COMPARED_SIZE,
+  NAMED_AT,
+  SHORTLIST,
+  coverageFromRGBA,
+  coverageSimilarity,
+  createMatcher,
+  fetchIndex,
+  type Matcher,
+  type MatcherServices,
+  type RGBAImage
+} from './match.js'
 
 /** Indexes hold hashes of `DEFAULT_SIZE`, so a query is always hashed at that size. */
 export type MatchOptions = HashMatchOptions
@@ -133,6 +147,29 @@ export async function fetchIconSvg(name: string): Promise<string> {
   }
 
   return res.text()
+}
+
+/**
+ * `matches` scored by how alike each icon draws to `svg`, most alike first, as `whaticon/match`
+ * names icons: both drawn with sharp in a `COMPARED_SIZE` square and compared by
+ * `coverageSimilarity`, whose `NAMED_AT` tells an icon from a lookalike. `iconSvg` gives each
+ * icon's SVG, by default from the Iconify API; icons it fails for are left out.
+ */
+export async function compareMatches(
+  svg: string | Buffer,
+  matches: readonly IconMatch[],
+  iconSvg: (name: string) => Promise<string> = fetchIconSvg
+): Promise<IconMatch[]> {
+  const own = await svgToPixels(svg, COMPARED_SIZE)
+  const scored = await Promise.all(
+    matches.map(async (match) => {
+      const icon = await iconSvg(match.name).catch(() => null)
+      if (!icon) return null
+      const similarity = coverageSimilarity(own, await svgToPixels(icon, COMPARED_SIZE))
+      return { ...match, similarity }
+    })
+  )
+  return scored.filter((match) => match !== null).sort((a, b) => b.similarity - a.similarity)
 }
 
 /**

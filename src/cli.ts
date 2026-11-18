@@ -5,7 +5,17 @@ import { resolve } from 'node:path'
 import * as v from 'valibot'
 
 import { ensureIndex, isIndexDownloaded } from './download.js'
-import { fetchIconSvg, findMatches, loadIndex } from './index.js'
+import {
+  NAMED_AT,
+  SHORTLIST,
+  compareMatches,
+  fetchIconSvg,
+  findMatches,
+  loadIndex
+} from './index.js'
+
+/** The hash similarity results start at without --compare. */
+const DEFAULT_THRESHOLD = 0.8
 
 const VariantSchema = v.picklist(['core', 'popular', 'full'])
 const LimitSchema = v.pipe(v.string(), v.toNumber(), v.integer(), v.minValue(1))
@@ -47,8 +57,13 @@ const main = defineCommand({
     threshold: {
       type: 'string',
       alias: 't',
-      description: 'Minimum similarity 0-1',
-      default: '0.8'
+      description: 'Minimum similarity 0-1 (default: 0.8, or 0.9 with --compare)'
+    },
+    compare: {
+      type: 'boolean',
+      alias: 'c',
+      description:
+        'Compare the closest hashes by drawing them, fetched from the Iconify API: a similarity that tells an icon from a lookalike'
     },
     prefix: {
       type: 'string',
@@ -104,7 +119,7 @@ const main = defineCommand({
     const limit = option(LimitSchema, args.limit, `Invalid limit: ${args.limit}`)
     const threshold = option(
       ThresholdSchema,
-      args.threshold,
+      args.threshold ?? String(args.compare ? NAMED_AT : DEFAULT_THRESHOLD),
       `Invalid threshold: ${args.threshold}`
     )
 
@@ -135,12 +150,16 @@ const main = defineCommand({
     const prefixes = args.prefix?.split(',').map((p) => p.trim())
     const prefer = args.prefer?.split(',').map((p) => p.trim())
 
-    const matches = await findMatches(svg, index, {
-      limit,
-      threshold,
-      prefixes,
-      prefer
-    })
+    const matches = args.compare
+      ? (
+          await compareMatches(
+            svg,
+            await findMatches(svg, index, { ...SHORTLIST, prefixes, prefer })
+          )
+        )
+          .filter((match) => match.similarity >= threshold)
+          .slice(0, limit)
+      : await findMatches(svg, index, { limit, threshold, prefixes, prefer })
 
     if (args.json) {
       console.log(JSON.stringify(matches, null, 2))

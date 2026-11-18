@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import {
+  NAMED_AT,
   buildIndex,
+  compareMatches,
   computeDHash,
   fetchIconSvg,
   findMatches,
@@ -113,6 +115,25 @@ describe('buildIndex', () => {
     expect(names).toBe('my:square')
     expect(hashes).toHaveLength(128)
     expect(skipped).toEqual(['my:broken'])
+  })
+})
+
+describe('compareMatches', () => {
+  test('scores matches by how alike they draw, so a lookalike falls below NAMED_AT', async () => {
+    const house = iconSvg('lucide:house')
+    const compared = await compareMatches(
+      house,
+      [
+        { name: 'lucide:search', similarity: 0.9 },
+        { name: 'lucide:house', similarity: 0.8 },
+        { name: 'lucide:missing', similarity: 0.7 }
+      ],
+      async (name) => iconSvg(name)
+    )
+
+    expect(compared.map((match) => match.name)).toEqual(['lucide:house', 'lucide:search'])
+    expect(compared[0]?.similarity).toBeGreaterThanOrEqual(NAMED_AT)
+    expect(compared[1]?.similarity).toBeLessThan(NAMED_AT)
   })
 })
 
