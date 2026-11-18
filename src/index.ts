@@ -150,6 +150,9 @@ export async function fetchIconSvg(name: string): Promise<string> {
   return res.text()
 }
 
+/** Icons `compareMatches` loads and draws at once. */
+const COMPARE_CONCURRENCY = 8
+
 /**
  * `matches` scored by how alike each icon draws to `svg`, most alike first, as `whaticon/match`
  * names icons: both drawn with sharp in a `COMPARED_SIZE` square and compared by
@@ -164,28 +167,33 @@ export async function compareMatches(
   iconSvg: (name: string) => Promise<string> = fetchIconSvg
 ): Promise<IconMatch[]> {
   const own = await svgToPixels(svg, COMPARED_SIZE)
-  const similarity = async (name: string): Promise<number | null> => {
-    try {
-      return coverageSimilarity(own, await svgToPixels(await iconSvg(name), COMPARED_SIZE))
-    } catch {
-      return null
-    }
+  const groups = matches.map((match) => [
+    match.name,
+    ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)
+  ])
+  // Loaded and drawn a few at a time, however wide the shortlist.
+  const names = groups.flat()
+  const scores = new Map<string, number>()
+  for (let i = 0; i < names.length; i += COMPARE_CONCURRENCY) {
+    await Promise.all(
+      names.slice(i, i + COMPARE_CONCURRENCY).map(async (name) => {
+        try {
+          const drawn = await svgToPixels(await iconSvg(name), COMPARED_SIZE)
+          scores.set(name, coverageSimilarity(own, drawn))
+        } catch {
+          // An icon that does not load or draw is left out.
+        }
+      })
+    )
   }
-  const scored = await Promise.all(
-    matches.map(async (match) => {
-      const names = [match.name, ...(match.siblings ?? []).slice(0, SIBLINGS_COMPARED)]
-      const scores = await Promise.all(names.map(similarity))
-      let best: IconMatch | null = null
-      for (const [i, name] of names.entries()) {
-        const score = scores[i]
-        if (score == null || (best && best.similarity >= score)) continue
-        const siblings = names.filter((other) => other !== name)
-        best =
-          siblings.length > 0 ? { name, similarity: score, siblings } : { name, similarity: score }
-      }
-      return best
-    })
-  )
+  const scored = groups.map((group): IconMatch | null => {
+    const compared = group.filter((name) => scores.has(name))
+    const [name] = compared.sort((a, b) => (scores.get(b) ?? 0) - (scores.get(a) ?? 0))
+    if (!name) return null
+    const siblings = compared.filter((other) => other !== name)
+    const similarity = scores.get(name) ?? 0
+    return siblings.length > 0 ? { name, similarity, siblings } : { name, similarity }
+  })
   return scored
     .filter((match): match is IconMatch => match !== null)
     .sort((a, b) => b.similarity - a.similarity)

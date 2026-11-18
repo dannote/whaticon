@@ -146,6 +146,16 @@ describe('compareMatches', () => {
     expect(compared).toMatchObject({ name: 'lucide:search', siblings: ['lucide:house'] })
   })
 
+  test('leaves a sibling that does not draw out of the match it names', async () => {
+    const [compared] = await compareMatches(
+      iconSvg('lucide:search'),
+      [{ name: 'broken:icon', similarity: 0.9, siblings: ['lucide:search'] }],
+      async (name) => (name === 'broken:icon' ? 'not svg' : iconSvg(name))
+    )
+
+    expect(compared).toEqual({ name: 'lucide:search', similarity: expect.any(Number) })
+  })
+
   test('leaves out icons that do not load or draw, and keeps the rest', async () => {
     const compared = await compareMatches(
       iconSvg('lucide:house'),

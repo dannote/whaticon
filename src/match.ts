@@ -152,8 +152,9 @@ export function createMatcher(services: MatcherServices): Matcher {
   }
 
   async function loadIndex(): Promise<IconIndex | null> {
-    // Inside the async call, so a loader that throws rejects this promise like one that rejects.
-    const loading = (index ??= (async () => services.index())())
+    // Stored before the loader runs, so a call it starts shares this load, and a loader that
+    // throws rejects it like one that rejects.
+    const loading = (index ??= Promise.resolve().then(() => services.index()))
     try {
       return await loading
     } catch (error) {
