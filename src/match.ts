@@ -100,7 +100,10 @@ export async function fetchIndex(
 
 /** What a matcher draws and loads with. */
 export interface MatcherServices {
-  /** The index of icons to name, loaded on first use, such as `fetchIndex`. */
+  /**
+   * The index of icons to name, loaded on first use, such as `fetchIndex`. Calls made while it
+   * loads share the load, so it must not wait on the matcher it serves.
+   */
   index: () => Promise<IconIndex>
   /**
    * The SVG drawn at the largest size that fits `width` by `height`, on transparency; its alpha
